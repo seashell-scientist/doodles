@@ -1,0 +1,232 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+data from https://datacatalog.worldbank.org/dataset/health-nutrition-and-population-statistics
+
+
+'Health Nutrition and Population Statistics database provides key health, nutrition and population statistics gathered from a variety of international and national sources. Themes include global surgery, health financing, HIV/AIDS, immunization, infectious diseases, medical resources and usage, noncommunicable diseases, nutrition, population dynamics, reproductive health, universal health coverage, and water and sanitation.'
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(tidyverse)
+
+#ts analysis/metrics
+library(tswge)
+
+#forecasting
+library(nnfor)
+```
+
+
+```{r}
+d1 <- read.csv('D:/SMU/Datasets/hnp_stats_csv/HNP_StatsCountry.csv')
+d2 <- read.csv('D:/SMU/Datasets/hnp_stats_csv/HNP_StatsCountry-Series.csv')
+d3 <- read.csv('D:/SMU/Datasets/hnp_stats_csv/HNP_StatsData.csv')
+d4 <- read.csv('D:/SMU/Datasets/hnp_stats_csv/HNP_StatsFootNote.csv')
+d5 <- read.csv('D:/SMU/Datasets/hnp_stats_csv/HNP_StatsSeries.csv')
+d6 <- read.csv('D:/SMU/Datasets/hnp_stats_csv/HNP_StatsSeries-Time.csv')
+```
+
+d1 is 
+
+d2 is sources for figures 
+
+d3 is the by country/reigon annual time series data by category by year,  range varies 
+contains columns for country name matched with category of variable for each country, date ranges start from column 5
+
+example codes for categorical figures - 
+SP.DYN.CBRT.IN is birth rate
+
+d4 is country and category code sources (more?again?)
+
+d5 is more category source codes, with additional notes on source variability/uncertainty
+
+d6 is more codes with notes about interpolation and such 
+
+```{r}
+#fix date columns in d3
+names(d3) <- c('Country.Name', 'Country.Code', 'Indicator.Name', 'Indicator.Code', seq(1960, 2020, 1), 'x')
+```
+
+
+```{r}
+#select from d3 conditional
+temp = d3[d3$Country.Code == 'ARB', ]
+d3[d3$Country.Code == 'ARB' & d3$Indicator.Code == 'SP.DYN.CBRT.IN', ]
+```
+
+
+
+goal - select rows by country code and melt/format into per-country dataframes for plotting/comparison
+
+```{r}
+selector <- function(country_code, metric_code){
+  temp <- d3[d3$Country.Code == country_code & d3$Indicator.Code == metric_code, ][c(-1:-4)]
+  return(unlist(temp))#want only the vector, not years, without unlist temp is dataframe
+}
+#example input -> selector('ARB', 'SP.DYN.CBRT.IN')
+#selector('ARB', 'SP.DYN.CBRT.IN')
+```
+
+```{r}
+#selector('ARB', 'SP.DYN.CBRT.IN')
+#single metric #birthrate
+#temp <- selector('ARB', 'SP.DYN.CBRT.IN')
+#plot(x = seq(1960, 2021, 1), y = temp[5:length(temp)])
+```
+```{r}
+#ts analysis/metrics/characteristics
+x <- temp[5:length(temp)]
+x <- x[!is.na(x)]
+plotts.wge(x)
+pacf(x)
+plotts.sample.wge(x)
+```
+
+not seasonal, likely no frequency, not suited to time series approach
+regression? 
+
+
+#testing various forecasting techniques
+```{r}
+#put together multiple ts on single frame
+ARB <- data.frame(
+  year = seq(1960, 2021, 1),
+  birth_rate = selector('ARB', 'SP.DYN.CBRT.IN'), 
+  death_rate = selector('ARB', 'SP.DYN.CDRT.IN'), 
+  fertility_rate = selector('ARB', 'SP.DYN.TFRT.IN'),
+  m_life_expectancy = selector('ARB', 'SP.DYN.LE00.MA.IN'),
+  f_life_expectancy = selector('ARB', 'SP.DYN.LE00.FE.IN'),
+  t_life_expectancy = selector('ARB', 'SP.DYN.LE00.IN'),
+  m_mort_rate = selector('ARB', 'SP.DYN.AMRT.MA'), 
+  f_mort_rate = selector('ARB', 'SP.DYN.AMRT.FE')
+)
+ARB <- na.omit(ARB)
+ARB_train = ARB[1:50, ]
+ARB_test = ARB[51:59, ]
+```
+
+
+```{r}
+#choose from unique(d3$Country.Code)
+
+ts_grabber <- function(cc){
+  newframe <- data.frame(
+    year = seq(1960, 2021, 1),
+    birth_rate = selector(cc, 'SP.DYN.CBRT.IN'), 
+    death_rate = selector(cc, 'SP.DYN.CDRT.IN'), 
+    fertility_rate = selector(cc, 'SP.DYN.TFRT.IN'),
+    m_life_expectancy = selector(cc, 'SP.DYN.LE00.MA.IN'),
+    f_life_expectancy = selector(cc, 'SP.DYN.LE00.FE.IN'),
+    t_life_expectancy = selector(cc, 'SP.DYN.LE00.IN'),
+    m_mort_rate = selector(cc, 'SP.DYN.AMRT.MA'), 
+    f_mort_rate = selector(cc, 'SP.DYN.AMRT.FE')
+  )
+  newframe <- na.omit(newframe)
+  return(newframe)
+}
+#ts_grabber('IRN')
+```
+
+```{r}
+corrplot::corrplot(cor(ts_grabber('MNE')), method = 'circle')
+```
+
+#correlation and misc 
+```{r}
+corrplot::corrplot(cor(ARB), method = 'circle')
+```
+
+fairly clear correlation, though generalized; since the 1960's in [this region] life expectancy has gone up and birth, death, fertility, and mortality rates have gone down
+
+
+#ridge regression and prediction 
+```{r}
+#ridge regression with glmnet
+#uses multiple independent variable to predict single dependent
+library(glmnet)
+
+xvar = data.matrix(ARB_train[, c(1, 2, 3, 7, 8)])
+yvar = ARB_train$t_life_expectancy
+#set lambda values
+lambda_seq <- 10^seq(2, -2, by = -.1)
+#build ridge regression
+fit <- glmnet(xvar, yvar, alpha = 0, lambda  = lambda_seq)
+summary(fit) #not sure what to make of this part yet
+```
+
+```{r}
+# Using cross validation glmnet, find 'best' lambda value
+ridge_cv <- cv.glmnet(xvar, yvar, alpha = 0, lambda = lambda_seq)
+# Best lambda value
+best_lambda <- ridge_cv$lambda.min
+best_lambda
+```
+
+```{r}
+#this part is a manual? way of looking at the 'best' lambda value? want to pick the lambda that corresponds to the highest dev.ratio, as the previous cell determines, the highest dev.ratio matches lambda = 0.01
+
+best_fit <- ridge_cv$glmnet.fit
+head(best_fit)
+```
+```{r}
+#using best lambda value,  build ridge regression model, get coefficients
+best.ridge = glmnet(xvar, yvar, alpha = 0, lambda = 0.01)
+coef(best.ridge)
+```
+```{r}
+#prediction
+pred <- predict(best.ridge, s = best_lambda, newx = data.matrix(ARB_test[, c(1, 2, 3, 7, 8)]))
+#looks like data for ridge regression has to be in datamatrix form? 
+actual <- ARB$t_life_expectancy[51:59]
+
+rss <- sum((pred - actual) ^ 2)
+tss <- sum((actual - mean(actual)) ^ 2)
+rsq <- 1 - rss/tss
+rsq
+```
+
+```{r}
+#vis
+library(ggplot2)
+library(reshape2)
+#better way to space this out automatically, later
+m1 <- data.frame(training = c(ARB_train$t_life_expectancy, rep(NA, 9)), predictions = c(rep(NA, 50), pred), actuals = c(rep(NA, 50), actual), year = ARB$year)
+
+m1 <- melt(m1, id = 'year')
+
+ggplot(m1) + geom_line(aes(x = year, y = value, col = variable))
+```
+
+ok, for a simple example that's not too bad
+
+```{r}
+#predictions with nnfor
+library(nnfor)
+
+#ts1 <- ts(ARB_train$t_life_expectancy, start(1960), freq = 1)
+ts1 <- ts(ARB_train[, 6])
+#mlp on sea data alone, reserve last 36 entries for endpoint ase
+mlp_fit = mlp(ts1 ,reps = 40, comb = "mean") #only takes single ts
+mlp_fore = forecast(mlp_fit, h = 10, bootstrap = TRUE) #forecast 36 ~about 1 year ahead
+plot(mlp_fore)
+#lackluster complexity
+```
+
+
+```{r}
+#library(ggplotgui)
+#ggplot_shiny(ARB)
+```
+
+
+
+
+
+
+
+
