@@ -1,0 +1,32 @@
+---
+title: "rvest example"
+author: "Jonathan Tan"
+date: "8/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+rvest example from http://categitau.com/using-rvest-to-scrape-data-from-wikipedia/
+
+using selector gadget, chrome addon
+
+```{r setup}
+library(rvest)
+library(magrittr)
+library(dplyr)
+```
+
+```{r test 1}
+#read code from website
+page1 <- read_html("https://en.wikipedia.org/wiki/Jennifer_Aniston")
+table <- page1 %>%
+  html_nodes("table.vcard") %>%
+  html_table(header = F)
+  table <- table[[1]]
+
+dict <- as.data.frame(table)
+dict
+```

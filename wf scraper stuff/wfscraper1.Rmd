@@ -1,0 +1,98 @@
+---
+title: "WF scraper test1"
+author: "Jonathan Tan"
+date: "8/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+goal: create an adaptive program that takes the name of a wf weapon
+and scrapes the wf wiki page for stats, possible pictures? 
+
+tools: rvest, html targeting
+
+brainstorming:
+retrieval mechanism should navigate to a webpage, 
+warframe.fandom.com/wiki/[weapon name here]
+and retrieve 
+mastery rank
+slot
+type
+trigger type
+ammo type
+noise level
+fire rate
+accuracy
+mag size
+max ammo
+reload time
+riven disposition
+damage types
+  this one how? slash, puncture, impact, heat, cold, toxin, shock, radiation, magnetic, viral, blast, 11 damage types total, have 11 columns? + 12ths for total damage per shot?
+total damage
+crit chance
+crit multiplier
+status chance
+maaayybbe how to obtain? this would be hard to automate
+
+at the end can output dps(rate of fire*dmg), dmg per mag? 
+
+
+thenn the fun part, sorting data by damage types, fastest reload, most heat damage, best status, ect
+output mastery level, sort by lowest up, ect
+
+this basic template should work for all weapons, instance retrieved data as 1 row? in a largeish tibble
+```{r setup}
+library(rvest)
+library(magrittr)
+library(dplyr)
+```
+
+```{r}
+#create iteratable list of urls to feed into scraper
+u1 = 'https://warframe.fandom.com/wiki/'
+```
+```{r}
+#grab weapon list from site scrape table?
+
+```
+
+``` {r braton test}
+#read code from website
+page1 <- read_html("https://warframe.fandom.com/wiki/Braton")
+#table <- page1 %>%
+  #html_nodes("table.pi-layout-default") %>%
+  #html_table(header = F)
+  #table <- table[5]
+
+#without pipeline
+table <- page1
+links <- html_nodes(table, "pi-data-value pi-font")
+
+x <- bind_rows(lapply(xml_attrs(links), function(x) data.frame(as.list(x), stringsAsFactors = FALSE)))
+
+#test1 <- as.data.frame(table)
+
+#table listed element from selector gadget isn't a table??? 
+
+x
+#arrrgggg how to get just a specific snippittttt out of the webpage without grabbing the 
+#ENTIRE html block???
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
