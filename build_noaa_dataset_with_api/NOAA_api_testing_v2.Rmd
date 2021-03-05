@@ -1,0 +1,220 @@
+---
+title: "NOAA_api_testing_v2"
+output: html_notebook
+---
+
+RESTful API in R for NCEI weather data intro and testing
+
+* goal, iterate through weather stations in texas (192) over (1/10/100) years for (single/multi) variable such as (airtemp/precipitation) data on a (yearly/monthly) rate
+
+https://www.ncei.noaa.gov/support/access-data-service-api-user-documentation
+
+example format for ncei format
+
+https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-marine&dataTypes=WIND_DIR,WIND_SPEED&stations=AUCE&startDate=2016-01-01&endDate=2016-01-02&boundingBox=90,-180,-90,180
+
+starting block - https://www.ncei.noaa.gov/access/services/data/v1
+dataset specification - ?dataset=[dataset name here]
+
+list of datasets? - 
+
+station identifier - &stations=[station ID here], ex, USC00457180, can have multi, comma separated
+
+list of stations? - https://www.ncdc.noaa.gov/cdo-web/datatools/lcd ?? search by location to get station codes? ex, IAH airport station = WBAN:12960
+
+startdate - &startDate=YYYY-MM-DD OR YYYY-MM-DDTHH:mm:ss
+endDate - &endDate=YYYY-MM-DD
+data types - &dataTypes=[data type code here] ex MLY-PRCP-NORMAL, can comma multi
+
+list of data types? - 
+
+bounding box - &boundingBox=northbound,eastbound,southbound,westbound but as numbers, N/S range from 90/-90, E/W from 180/-180 (the box defined by the cardinal limits, not corners but line centers)
+data format - &format=csv
+
+optional attributes
+display data attributes - &includeAttributes=true/false or 1/0, optional attributes for the selected datatype??? 
+station name - &includeStationName=true/false or 1/0
+station location - &includeStationLocation=true/false or 1/0
+units - &units=metric/standard
+
+
+
+```{r}
+library(dplyr) #pipes
+library(httr) #urls/http
+library(jsonlite)
+library(DT)
+```
+
+#offical api approach using GET
+Email: 	'salarian.seashell.scientist@gmail.com'
+Token: 	
+using https://www.ncdc.noaa.gov/cdo-web/webservices/v2#datasets
+
+```{r}
+u <- 'salarian.seashell.scientist@gmail.com'
+token <- 	read.delim('D:\\SMU\\extra curriculars\\noaa_api_token.txt')[[1]] #token stored in txt file goes here, make sure it comes out as a string, not list
+```
+
+#getting api parameters
+guide for the various type of data codes and their descriptions
+```{r}
+#get the first 1000 datatype descriptions and codes
+typelist <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datatypes?limit=1000', 
+                add_headers(token=token)) %>% content()
+
+typelist_frame <- data.frame()
+for(i in seq(1, length(typelist$results), 1)){
+  typelist_frame <- rbind(typelist_frame, c(typelist$results[[i]]$id,
+                                            typelist$results[[i]]$name,
+                                            typelist$results[[i]]$mindate,
+                                            typelist$results[[i]]$maxdate,
+                                            typelist$results[[i]]$datacoverage))
+}
+names(typelist_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+tframe_A <- typelist_frame
+
+#get the next 1000
+typelist <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datatypes?offset=1001&limit=1000', 
+                add_headers(token=token)) %>% content()
+#typelist
+typelist_frame <- data.frame()
+for(i in seq(1, length(typelist$results), 1)){
+  typelist_frame <- rbind(typelist_frame, c(typelist$results[[i]]$id,
+                                            typelist$results[[i]]$name,
+                                            typelist$results[[i]]$mindate,
+                                            typelist$results[[i]]$maxdate,
+                                            typelist$results[[i]]$datacoverage))
+}
+names(typelist_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+
+#merge
+typelist_full <- rbind(tframe_A, typelist_frame)
+datatable(typelist_full)
+```
+
+```{r}
+#list of locations
+
+#function to grab long lists, 1000 at a time
+list_fetch <- function(dataset_id, datacategory_id, offset, limit){
+  temp_url <- paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/locations?', 
+                     'datasetid=', dataset_id, 
+                     '&datacategoryid=', datacategory_id, 
+                     '&offset=', offset, #note offset is the starting location of the next segment 
+                     '&limit=', limit)
+  temp_results <- GET(temp_url, add_headers(token=token)) %>% content()
+  temp_results_frame <- data.frame()
+  for(i in seq(1, length(temp_results$results), 1)){
+    temp_results_frame <- rbind(temp_results_frame, c(temp_results$results[[i]]$id,
+                                                      temp_results$results[[i]]$name,
+                                                      temp_results$results[[i]]$mindate,
+                                                      temp_results$results[[i]]$maxdate,
+                                                      temp_results$results[[i]]$datacoverage))
+  }
+  names(temp_results_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+  return(temp_results_frame)
+}#end list_fetch
+
+big_page <- data.frame()
+for(i in seq(1, 24001, 1000)){
+  page <- list_fetch('GSOY', 'TAVG', i, 1000)
+  big_page <- rbind(big_page, page)
+}
+datatable(big_page)
+```
+
+
+
+
+
+```{r}
+#functionalize pulling all the data from a single day from GHNCD from FIPS:48 (TX)
+#designed to iterate through a set of offsets (start location) from 1, 1001, 2001, ect 
+daypull <- function(dataset_id, location_id, date, offset){
+  temp_url <- paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/data',
+                     '?datasetid=',dataset_id,
+                     '&locationid=', location_id,
+                     '&startdate=', date, 
+                     '&enddate=', date, 
+                     '&offset=', offset, 
+                     '&limit=1000')
+  temp_results <- GET(temp_url, add_headers(token=token)) %>% content()
+  
+  temp_frame <- data.frame()
+  
+  # #function will fail if page number exceeds records, need to add an exception for when results come back erroneous
+  # if(temp_results$statusCode != '200'){
+  #   temp_frame <- rbind(temp_frame, c('error code', temp_results$statusCode, 'NA', 'NA', 'NA'))
+  # }  else{ #note, else needs to be on the same line as the closing bracket of if (but why???? )
+  #   for(i in seq(1, length(temp_results$results), 1)){
+  #     temp_frame <- rbind(temp_frame, temp_results$results[[i]])
+  #   }
+  # }
+  for(i in seq(1, length(temp_results$results), 1)){
+    temp_frame <- rbind(temp_frame, temp_results$results[[i]])
+  }
+  return(temp_frame)
+  #return(temp_results$statusCode)
+}
+
+#might need to add a timer/spacer to not pull too much from the site and get locked??? is that a thing i can measure??? 
+```
+
+
+```{r}
+day_frame <- data.frame()
+pages <- page_spaces(5) #just guess how many records there are? 4000ish for a single day on feb1, 2021
+for(p in pages){
+  semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', '1')#as.character(p))
+  day_frame <- rbind(day_frame, semi_day_frame)
+}
+```
+
+```{r}
+#problem- not all dates will have 5 pages of results, too many causes crash
+#solution - iterate through pages WHILE the resulting frames are == max limit pulled, indicating there's still 'at least one more bucket to fill', and stop when it gets back a 'non full bucket' 
+day_frame <- data.frame()
+r <- 1000
+i <- 0
+while(r == 1000){
+  page_spacer <- paste0(as.character(i), '001')
+  semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', page_spacer)
+  r <- dim(semi_day_frame)[1]
+  i <- i+1 #advance page offset from 0001, 1001, 2001, 3001, ect
+  day_frame <- rbind(day_frame, semi_day_frame)
+  #print(paste0('iteration ', i, ' dim: ', dim(semi_day_frame)))
+}
+
+```
+now to iterate by date, start with 1 month
+```{r}
+month_frame <- data.frame()
+date_seq <- seq.Date(as.Date('2021-02-01'), as.Date('2021-02-28'), 'day') %>% as.character() #all api inputs must be char
+for(d in date_seq){
+  day_frame <- data.frame()
+  # for(p in pages){
+  #   semi_day_frame <- daypull('GHCND', 'FIPS:48', d, p)
+  #   day_frame <- rbind(day_frame, semi_day_frame)
+  # }
+  
+  r <- 1000
+  i <- 0
+  while(r == 1000){ #checks to get number of pages right!
+    page_spacer <- paste0(as.character(i), '001')
+    semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', page_spacer)
+    r <- dim(semi_day_frame)[1]
+    i <- i+1 #advance page offset from 0001, 1001, 2001, 3001, ect
+    day_frame <- rbind(day_frame, semi_day_frame)
+    #print(paste0('iteration ', i, ' dim: ', dim(semi_day_frame)))
+    Sys.sleep(sample(1:30, 1)) #pause between 1 and 30s between each pull!
+  }
+  month_frame <- rbind(month_frame, day_frame)
+}
+```
+
+```{r}
+dim(month_frame)
+```
+wahahah it works, now just to iterate over multiple monthssss
+

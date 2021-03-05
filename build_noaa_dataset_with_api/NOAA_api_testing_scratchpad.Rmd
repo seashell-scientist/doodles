@@ -1,0 +1,781 @@
+---
+title: "RESTful API"
+output: html_notebook
+---
+RESTful API in R for NCEI weather data intro and testing
+
+* goal, iterate through weather stations in texas (192) over (1/10/100) years for (single/multi) variable such as (airtemp/precipitation) data on a (yearly/monthly) rate
+
+https://www.ncei.noaa.gov/support/access-data-service-api-user-documentation
+
+example format for ncei format
+
+https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-marine&dataTypes=WIND_DIR,WIND_SPEED&stations=AUCE&startDate=2016-01-01&endDate=2016-01-02&boundingBox=90,-180,-90,180
+
+starting block - https://www.ncei.noaa.gov/access/services/data/v1
+dataset specification - ?dataset=[dataset name here]
+
+list of datasets? - 
+
+station identifier - &stations=[station ID here], ex, USC00457180, can have multi, comma separated
+
+list of stations? - https://www.ncdc.noaa.gov/cdo-web/datatools/lcd ?? search by location to get station codes? ex, IAH airport station = WBAN:12960
+
+startdate - &startDate=YYYY-MM-DD OR YYYY-MM-DDTHH:mm:ss
+endDate - &endDate=YYYY-MM-DD
+data types - &dataTypes=[data type code here] ex MLY-PRCP-NORMAL, can comma multi
+
+list of data types? - 
+
+bounding box - &boundingBox=northbound,eastbound,southbound,westbound but as numbers, N/S range from 90/-90, E/W from 180/-180 (the box defined by the cardinal limits, not corners but line centers)
+data format - &format=csv
+
+optional attributes
+display data attributes - &includeAttributes=true/false or 1/0, optional attributes for the selected datatype??? 
+station name - &includeStationName=true/false or 1/0
+station location - &includeStationLocation=true/false or 1/0
+units - &units=metric/standard
+
+
+
+```{r}
+library(dplyr) #pipes
+library(httr) #urls/http
+library(jsonlite)
+```
+
+#simple url construction approach
+
+example 
+start with url header? 
+path <- 'https://www.ncei.noaa.gov/access/services/data/v1' 
+
+create a request object
+
+request <- GET(url = path, 
+query = ect)
+
+retrieve as json
+response <- content(request, as = "text", encoding = "UTF-8")
+
+json to df? 
+df <- fromJSON(response, flatten = TRUE) %>% 
+data.frame()
+
+
+```{r}
+# #read csv directly from url?
+# #test1 <- read.csv('https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-marine&dataTypes=WIND_DIR,WIND_SPEED&stations=AUCE&startDate=2016-01-01&endDate=2016-01-02&boundingBox=90,-180,-90,180')
+# test1 <- read.csv('https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-marine&dataTypes=WIND_DIR,WIND_SPEED&stations=AUCE&startDate=2016-01-01&endDate=2016-01-03&boundingBox=90,-180,-90,180')
+# #so that actually works?? but for a relatively small dataset 
+# test1
+```
+
+```{r}
+# #u_ex <- 'https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-marine&dataTypes=WIND_DIR,WIND_SPEED&stations=AUCE&startDate=2016-01-01&endDate=2016-01-02&boundingBox=90,-180,-90,180'
+# #url creator
+# path <- 'https://www.ncei.noaa.gov/access/services/data/v1?' 
+# d1 <- 'LCD' #'global-marine'
+# dt1 <- 'HourlyDryBulbTemperature' #'WIND_DIR' #note HourlyDryBulbTemperature is air temp
+# dt2 <- ',WIND_SPEED'
+# s1 = 'WBAN:12960' #'72243012960' #'AUCE'
+# startDate = '2021-01-01'
+# endDate = '2021-01-02'
+# bb = '90,-180,-90,180'
+# 
+# url_end <- paste(path, '&dataset=',d1,
+#                  '&dataTypes=', dt1, #dt2,
+#                  '&stations=', s1,
+#                  '&startDate=', startDate,
+#                  '&endDate=', endDate, 
+#                  '&boundingBox=', bb,
+#                  #'&format=csv',
+#                  sep='')
+# #print(u_ex)
+# print(url_end)
+# 
+# test2 <- read.csv(url_end)
+# test2
+# #having issues finding out the correct syntax options for datasets, vars, and station
+```
+
+
+
+#accuweather api example
+
+u - st_0912341
+p - 8qaFaWXx9tSLgcs
+r-test app api key - mH5YECMJ59gKgk3R4WG1RA3Ac5WTF1cw
+
+```{r}
+key <- 'mH5YECMJ59gKgk3R4WG1RA3Ac5WTF1cw'
+url_test <- paste0('http://dataservice.accuweather.com/forecasts/v1/daily/1day/571_pc', '?apikey=', key)
+test1 <- httr::GET(url_test) #pass url to GET 
+
+actual_results <- httr::content(test1) #GET results in response, pass response to content
+#dplyr::glimpse(actual_results)
+test_df <- as.data.frame(actual_results$DailyForecasts)
+test_df %>% t()
+#jsonlite::fromJSON(test1) 
+#there we go
+```
+
+
+
+
+#offical api approach using GET
+
+Email: 	'salarian.seashell.scientist@gmail.com'
+Token: 	'jJTAFAHBXEvPuPaWguEyGRlDjqOYTSfG'
+
+using https://www.ncdc.noaa.gov/cdo-web/webservices/v2#datasets
+
+```{r}
+u <- 'salarian.seashell.scientist@gmail.com'
+token <- 	read.delim('D:\\SMU\\extra curriculars\\noaa_api_token.txt')[[1]] #token stored in txt file goes here, make sure it comes out as a string, not list
+```
+
+#getting information on api parameters (datatype_id)
+```{r}
+base <- 'https://www.ncdc.noaa.gov/cdo-web/api/v2'
+endpoint <- '/datasets'
+
+url2 <- paste0(base, '/datacategories')
+
+content2 <- GET(url2, add_headers(token = token)) #ok that token part is very neccessary, GET takes care of the fancy syntax?? 
+results2 <- content(content2)
+#glimpse(results2)
+results2 %>% as.data.frame() %>% t()
+#list of datasets available 
+```
+
+Ok, this is the table of possible values for dataset attribute names that can be integrated into the GET request, of primary interest is air temp, coded as "TEMP"
+
+let's do the same to get a list of available datasets
+
+#getting dataset_id
+```{r}
+
+results3 <- GET(paste0(base, '/datasets'),
+                add_headers(token = token)) %>% content()
+#ok that token part is very neccessary, GET takes care of the fancy syntax?? 
+
+#results3 %>% as.data.frame() %>% t()
+```
+ok, given dataset id, dataset attributes, query with??? 
+
+
+#get stations that have dataset and datatype matches
+```{r}
+#check for stations? 
+base <- 'https://www.ncdc.noaa.gov/cdo-web/api/v2'
+dataset_id <- 'GSOM' #'GHCND'
+datatype_id <- 'TEMP'
+station_id <- 'GHCND:USC00010008' #single station
+startdate <- '2010-01-01'
+enddate <- '2011-01-01'
+#COOP:010008 is from the location ID 	CITY:US010008???? compare datasets
+url_target <- paste0(base,'/data?datasetid=', dataset_id,
+                     '&stationid=', station_id,
+                     '&datacategoryid=TEMP',
+                     '&startdate=', startdate, 
+                     '&enddate=', enddate, 
+                     '&limit=1000', '&includemetadata=false')
+print(url_target)
+results4 <- GET(url_target,add_headers(token = token)) %>% content('parsed')
+df4 <- results4 %>% as.data.frame() %>% t()
+head(df4, 10)
+```
+#test pull and data reorganization
+ok that kinda works? need to sort out the long string of values, can ... just count it out??? 
+```{r}
+#x <- as.data.frame(df4[4:length(df4), ]) #trim metadata
+x <- df4
+list_length <- dim(x)[1]
+# clean_frame <- data.frame(date = x[seq(1, list_length, 5), 1], 
+#                           dtype = x[seq(2, list_length, 5), 1], 
+#                           station = x[seq(3, list_length, 5), 1], 
+#                           attributes = x[seq(4, list_length, 5), 1], 
+#                           value = x[seq(5, list_length, 5), 1])
+clean_frame <- data.frame(
+  date = x[seq(from=1, by=5, length.out=(list_length/5)), 1],
+  dtype = x[seq(from=2, by=5, length.out=(list_length/5)), 1],
+  station = x[seq(from=3, by=5, length.out=(list_length/5)), 1],
+  attributes = x[seq(from=4, by=5, length.out=(list_length/5)), 1],
+  value = x[seq(from=5, by=5, length.out=(list_length/5)), 1])
+head(clean_frame)
+```
+
+just need to figure out syntax for pulling down the specific temperature records data, and how to verify the mysterious 'attributes' columns are what they say they are
+also how to delimit returns, more than 25 possible? 
+
+```{r}
+r5 <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=PRECIP_15&stationid=COOP:010008&units=metric&startdate=2010-05-01&enddate=2010-05-31&limit=1000', add_headers(token = token)) %>% content()
+```
+
+```{r}
+#functionalize
+result_cleaner <- function(result_object){
+  temp_frame <- data.frame()
+  for(i in seq(1, length(result_object$results), 1)){
+    
+    temp_frame <- rbind(temp_frame, c(result_object$results[[i]]$date,
+                                      result_object$results[[i]]$datatype,
+                                      result_object$results[[i]]$station,
+                                      result_object$results[[i]]$attributes,
+                                      result_object$results[[i]]$value))
+  }
+  names(temp_frame) <- c('date', 'datatype', 'station', 'attributes', 'value')
+  return(temp_frame)
+}
+result_cleaner(r5)
+```
+
+
+```{r}
+#functionalize the GET with the cleaner
+query <- function(dataset_id, station_id, units, startdate, enddate){
+  temp_url <- paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=',dataset_id,
+                     '&stationid=', station_id,
+                     '&units=', units, 
+                     '&startdate=', startdate,
+                     '&enddate=', enddate, 
+                     '&limit=1000')
+  temp_results <- GET(temp_url, add_headers(token=token)) %>% content()
+  
+  if(sum(grepl('error', temp_results)) > 0){ #test if the request failed by counting instances of 'error'
+    return('service request error')
+  }
+  else{
+    return(result_cleaner(temp_results))
+  }
+}
+```
+
+```{r}
+#function_testing
+r7 <- query('GSOM', 'GHCND:USC00010008', 'standard', '2010-06-01', '2010-06-30') #very sensetive to specific dates, need to have exactly the first and last day of month or error 
+head(r7)
+
+```
+OK! so that seems to work, just need to generate  - 
+selection of appropriate dataset that contains airtemp
+datatype request list to cycle through
+station list to cycle through
+paired date/month list to cycle through 
+
+
+
+#pull datatype codes and display
+```{r}
+#get the first 1000 datatype descriptions and codes
+typelist <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datatypes?limit=1000', 
+                add_headers(token=token)) %>% content()
+
+typelist_frame <- data.frame()
+for(i in seq(1, length(typelist$results), 1)){
+  typelist_frame <- rbind(typelist_frame, c(typelist$results[[i]]$id,
+                                            typelist$results[[i]]$name,
+                                            typelist$results[[i]]$mindate,
+                                            typelist$results[[i]]$maxdate,
+                                            typelist$results[[i]]$datacoverage))
+}
+names(typelist_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+tframe_A <- typelist_frame
+
+#get the next 1000
+typelist <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datatypes?offset=1001&limit=1000', 
+                add_headers(token=token)) %>% content()
+#typelist
+typelist_frame <- data.frame()
+for(i in seq(1, length(typelist$results), 1)){
+  typelist_frame <- rbind(typelist_frame, c(typelist$results[[i]]$id,
+                                            typelist$results[[i]]$name,
+                                            typelist$results[[i]]$mindate,
+                                            typelist$results[[i]]$maxdate,
+                                            typelist$results[[i]]$datacoverage))
+}
+names(typelist_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+
+#merge
+typelist_full <- rbind(tframe_A, typelist_frame)
+```
+
+```{r}
+library(data.table)
+library(DT)
+datatable(typelist_full)
+```
+notable var codes
+- HTMX - highest max temp, 1793-2021
+- LTMN - lowest min temp - 1763-2021
+- TAVG - average temp, 1763, 2021
+- TMAX
+- TMIN 
+
+
+now that we have a list of vars, need to find dataset(s) that contain those vars 
+
+```{r}
+dataset_list<- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datasets?&datatypeid=TAVG&limit=1000', 
+                   add_headers(token=token)) %>% content()
+dataset_list$results
+```
+options that contain TAVG are datasets GSOD, GSOM, and GSOY (daily, monthly, and yearly reports)
+let's start with yearly
+
+next is locations, fill parameters with desired datasetid and data type id 
+
+```{r}
+#function to grab long lists, 1000 at a time
+list_fetch <- function(dataset_id, datacategory_id, offset, limit){
+  temp_url <- paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/locations?', 
+                     'datasetid=', dataset_id, 
+                     '&datacategoryid=', datacategory_id, 
+                     '&offset=', offset, #note offset is the starting location of the next segment 
+                     '&limit=', limit)
+  temp_results <- GET(temp_url, add_headers(token=token)) %>% content()
+  temp_results_frame <- data.frame()
+  for(i in seq(1, length(temp_results$results), 1)){
+    temp_results_frame <- rbind(temp_results_frame, c(temp_results$results[[i]]$id,
+                                                      temp_results$results[[i]]$name,
+                                                      temp_results$results[[i]]$mindate,
+                                                      temp_results$results[[i]]$maxdate,
+                                                      temp_results$results[[i]]$datacoverage))
+  }
+  names(temp_results_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+  return(temp_results_frame)
+}#end list_fetch
+```
+
+
+```{r}
+##testing get locations that have GSOY dataset
+# x <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/locations?datasetid=GSOY', add_headers(token=token)) %>% content()
+# temp_results_frame <- data.frame()
+# temp_results <- x
+# for(i in seq(1, length(temp_results$results), 1)){
+#   temp_results_frame <- rbind(temp_results_frame, c(temp_results$results[[i]]$id,
+#                                                     temp_results$results[[i]]$name,
+#                                                     temp_results$results[[i]]$mindate,
+#                                                     temp_results$results[[i]]$maxdate,
+#                                                     temp_results$results[[i]]$datacoverage))
+# }
+# names(temp_results_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+# head(temp_results_frame)
+```
+
+```{r}
+#manual testing shows that there are 'only' 24,000+ stations, so automate the scraping of station names 24 times
+#get stations with GSOY and TAVG data
+big_page <- data.frame()
+for(i in seq(1, 24001, 1000)){
+  page <- list_fetch('GSOY', 'TAVG', i, 1000)
+  big_page <- rbind(big_page, page)
+}
+head(big_page, 5)
+```
+So now we have a big page of all that stations, probably narrow down selection based on scope
+
+```{r}
+#narrowing station selection with regex: pull out location name details from id column, which has descriptors like CITY:1028973
+x <- big_page[1, 1]
+#unlist(strsplit(x, ':'))[1] #ok that works, split string based on : then grab what is in front of the : with indexing
+id_prefix <- seq(1, length(big_page$id), 1) #apply to first col of bigpage
+for(r in id_prefix){
+  id_prefix[r] <- unlist(strsplit(big_page[r, 1], ':'))[1]
+}
+table(id_prefix)
+```
+We can see that most of the data is stations identified by zip code, and presumably in the US. this could match well with a zip code based map for later weather vis, so we'll isolate the zip code stations first
+
+```{r}
+zip_page <- big_page[which(grepl('ZIP',big_page$id)== TRUE), ] #grab all rows from bigpage that contain 'ZIP' in the id column
+#and check, zip page has 16303 rows
+zip_page[1, ]
+```
+
+ok, so now can cycle through zip_page$id[i] to get location codes for api
+
+actually noaa has and example of fetching only us states, this looks like state level data? 
+```{r}
+statepage <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/locations?locationcategoryid=ST&limit=1000', add_headers(token=token)) %>% content()
+
+stateframe <- data.frame()
+for(i in seq(1, length(statepage$results), 1)){
+  stateframe <- rbind(stateframe, c(statepage$results[[i]]$id,
+                                    statepage$results[[i]]$name,
+                                    statepage$results[[i]]$mindate,
+                                    statepage$results[[i]]$maxdate,
+                                    statepage$results[[i]]$datacoverage))
+}
+names(stateframe) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+head(stateframe)
+```
+
+#finalize functions to pull 
+now that we have dataset id, data type id and location, we can iterate through these lists to get the actual data for all these locations
+
+```{r}
+#refined function with added input for data type query
+#where directory can be 'datasets', 'datacategories', 'datatypes', 'locationcategories', 'locations', 'stations', or 'data'
+noaa_fetch <- function(directory, dataset_id, datacategory_id, station_id, startdate, enddate, offset, limit){
+  temp_url <- paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/',
+                     directory, '?', 
+                     'datasetid=', dataset_id, 
+                     '&datacategoryid=', datacategory_id,
+                     '&stationid=', station_id,
+                     '&units=standard',
+                     '&startdate=', startdate,
+                     '&enddate=', enddate,
+                     '&offset=', offset, #note offset is the starting location of the next segment 
+                     '&limit=', limit)
+  temp_results <- GET(temp_url, add_headers(token=token)) %>% content()
+  
+  if(sum(grepl('error', temp_results)) > 0){ #test if the request failed by counting instances of 'error'
+    return(paste('service request error', 'url= ', temp_url, ' '))
+  }
+  else{
+    temp_results_frame <- data.frame()
+    for(i in seq(1, length(temp_results$results), 1)){
+      temp_results_frame <- rbind(temp_results_frame, c(temp_results$results[[i]]$id,
+                                                        temp_results$results[[i]]$name,
+                                                        temp_results$results[[i]]$mindate,
+                                                        temp_results$results[[i]]$maxdate,
+                                                        temp_results$results[[i]]$datacoverage))
+    }
+    names(temp_results_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
+    return(temp_results_frame)
+  }
+  
+  
+}#end list_fetch
+
+```
+
+hmmm issues feeding in all the url parameters, troubleshoot later
+edit: TAVG isn't an available data category in *most datasets
+```{r}
+#noaa_fetch('data', 'GSOM', 'TAVG', 'GHCND:USC00010008', '2010-05-01', '2010-05-31', 1, 1000)
+```
+
+```{r}
+#get list of just texas zip codes
+zip <- read.csv('D:\\SMU\\extra curriculars\\zip_code_database.csv')
+
+txzip <- zip[(zip$state=='TX'), 1]
+head(txzip)
+```
+
+#test if tx zip codes correspond to noaa stations with valid data
+
+```{r}
+# #head(big_page[grepl('73301',big_page$id), ])
+# #example tx zip code
+# table(grepl('73301',big_page$id))
+# table(grepl('73344',big_page$id))
+# table(grepl('77429',big_page$id))
+# #sample noaa zip code
+# table(grepl('28801',big_page$id))
+```
+
+hmm so that looks like only some tx zip codes are available in the GSOY and TAVG specifications 
+
+#get list of tx zip codes that are in the stationlist zip_page
+```{r}
+#table(grepl('77429',big_page$id)) 
+#list of all zips in zip page 
+zlist <- strsplit(zip_page$id, ':') %>% unlist() %>% unique()
+txlist <- intersect(zlist, txzip)
+#txlist is tx zip codes that are valid addresses in the noaa database 
+```
+
+
+```{r}
+txdetails <- data.frame()
+for(i in txlist){
+  txdetails <- rbind(txdetails, zip_page[grepl(as.character(i), zip_page$id), ]) #create a frame of rows from zippage that match tx zip list with details on dates for proper inputs
+}
+head(txdetails)
+```
+
+so it looks like, despite being pulled from overlap in the GSOY AND TAVG dataset list, this tx zip code doesn't actualy contain any TAVG data, or GSOY??? 
+
+additional diagnostics
+```{r}
+#big-page is a list of stations that are supposed to have GSOY and TAVG data
+big_page[grepl('77429', big_page$id), ] 
+#tx zip code 77429 is on this list
+#but when looking at the station details of ZIP:77429
+x <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datacategories?locationid=ZIP:77429&limit=1000', add_headers(token=token)) %>% content()
+x$results
+#we don't see TAVG or GSOY as one of the datatype or dataset id???? 
+```
+ahhh, location != station, need to input locations to get stations????
+```{r}
+x <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/stations?locationid=ZIP:77429&limit=1000', add_headers(token=token)) %>% content()
+unlist(x$results) %>% head(7)
+
+#this works # https://www.ncdc.noaa.gov/cdo-web/api/v2/stations?datatypeid=EMNT&datatypeid=EMXT&datatypeid=HTMN
+
+# y <- y <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/stations?locationid=FIPS:37?datatypeid=EMNT&datatypeid=EMXT&datatypeid=HTMN',
+#          add_headers(token=token)) %>% content()
+# y
+y <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/stations/COOP:412206',
+         add_headers(token=token)) %>% content()
+y
+```
+
+orrr notttttt???? some disconnect between my understanding of what category TAVG being returned as in previous queries
+
+```{r}
+z <- GET("https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GSOM&stationid=GHCND:USC00010008&units=standard&startdate=2010-05-01&enddate=2010-05-31", add_headers(token=token)) %>% content
+z$results[[1]]
+zframe <- data.frame()
+for(i in seq(1, length(z$results), 1)){
+  zframe<- rbind(zframe, z$results[[i]])
+}
+zframe
+```
+based on consulting the typelist_full datatype ID list, GSOY dataset contains
+DP01 - number of days with => .1 inch precipitation
+DP10 - days => 1 inch precip
+DP1X - ??? 
+DSND - number of days with snow depth => 1 inch for the period (year) 
+DSNW - number of days with snow depth => 1 inch
+DYSN - date of extreme max snowfall for period (year)
+DYXP - date of extreme max daily precip (year) 
+EMSD - extreme max snow depth
+EMSN - extreme max snowfall
+
+so TAVG isn't in GSOM
+
+```{r}
+z <- GET("https://www.ncdc.noaa.gov/cdo-web/api/v2/data?stationid=GHCND:USC00173046&datasetid=GSOY&startdate=2010-01-01&enddate=2017-01-31", add_headers(token=token)) %>% content
+z$results[[1]]
+```
+```{r}
+zframe <- data.frame()
+zframe4 <- data.frame()
+for(i in seq(1, length(z$results), 1)){
+  #print(length(z$results[[i]]) == 4)
+  if(length(z$results[[i]]) == 4){ #whyyyy are there different columnsssss
+    zframe4 <- rbind(zframe4, z$results[[i]])
+  }
+  else{
+    zframe<- rbind(zframe, z$results[[i]])
+  }
+}
+zframe
+zframe4
+
+#GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/stations/GHCND:USC00173046', add_headers(token=token)) %>% content()
+```
+looking at an example GSOY from... GARDINER, ME US
+
+CLDD
+DP01
+DP10
+DP1X
+DSNW
+DT00
+DT32
+DX32
+DX70
+DX90
+EMNT
+EMSD
+EMSN
+EMXP
+DMXT
+FZF0 - date of first freeze below 32F
+FZF1 - first freeze below 28F
+FZF2 - below 24F
+FZF3 - below 20
+FZF4 - 16
+FZF5 - last freeze below 32
+FZF6 - last below 25
+FZF7 - last below 24
+CDSD - 'cooling degree days season to date'
+DSND - #days with snow depth > 1 in
+
+still no TAVG
+```{r}
+datatable(typelist_full)
+```
+
+```{r}
+GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/locations/ZIP:77429', add_headers(token=token)) %>% content()
+
+cy <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=ZIP:77429&startdate=2021-01-01&enddate=2021-01-31', add_headers(token=token)) %>% content()
+z <- cy
+zframe <- data.frame()
+for(i in seq(1, length(z$results), 1)){
+  zframe<- rbind(zframe, z$results[[i]])
+}
+zframe
+```
+So daily records (for this timeframe) here also don't show TAVG, or any sort of temperature at all! might be station dependent, or only extant in a different timeframe, but clearly the error lies in assuming that searching for locations that have TAVG will have TAVG or similar variables consistently throughout the whole record
+
+
+
+```{r}
+#new query, looking for locations that have TAVG, within the last 10 years 
+z <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/locations?locationcategoryid=ZIP&datacategoryid=TAVG&startdate=2011-01-01&enddate=2021-02-28&limit=100', add_headers(token=token)) %>% content()
+
+zframe <- data.frame()
+for(i in seq(1, length(z$results), 1)){
+  zframe<- rbind(zframe, z$results[[i]])
+}
+zframe
+
+```
+
+so let's test this, does ZIP:00001 really have TAVG data within the last 10 years?
+```{r}
+#check datasets available at location 
+#z <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datasets?locationid=ZIP:00001', add_headers(token=token)) %>% content()
+#querying available datasets, zip 00001 contains GHCND, GSOM, GSOY, NEXRAD2, NEXRAD3, but that doesn't tell us where temp is located
+# z <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datacategories?locationid=ZIP:00001', add_headers(token=token)) %>% content()
+#querying available datatypes, zip;00001 does contain TEMP, but doesn't say which dataset it's in 
+
+z <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=ZIP:00001&startdate=2020-01-01&enddate=2020-01-02', add_headers(token=token))  %>% content()
+z
+#ok so no results from daily query, GSOM, GSOY WITH TEMP
+#without temp... no daily, GSOM, GSOY hmmmmmmmmmmmmmmm
+
+```
+
+could try to just build a dataset with the data immediately available (rainfall, precip)
+but temp looks cooler on a mapppppp
+could use snowfall as a temp standin? 
+
+
+```{r}
+#GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datasets?locationid=ZIP:77429', add_headers(token=token)) %>% content() #datasets at 77429-GHCND, GSOM, GSOY, NEXRAD2, NEXRAD3, PRECIP_15, PRECIP_HRL
+
+#checking datatype available at each dataset at location 77429
+#GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/datacategories?datasetid=PRECIP_HLY&locationid=ZIP:77429', add_headers(token=token)) %>% content()
+#GHCND[WATER, PRCP, WXTYPE], GSOM[COMP, PRCP], GSOY[COMP, PRCP], NEXRAD2[OTHER(???)], PRECIP_15[PRCP], PRECIP_HRL[PRCP], so nothing here has temp
+```
+
+ok just look at what we have here then
+```{r}
+#x <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=FIPS:48&startdate=2020-02-01&enddate=2020-02-01&limit=1000', add_headers(token=token)) %>% content()
+#state level dataset [FIPS] appears to have TEMP
+#state level datasets include: GHCND, GSOM, GSOY, NEXRAD2, NEXRAD3, NORMALS_ANN, NORMALS_DLY, NORMALS,HLY, NORMALS_MLY, PRECIP_15, PRECIP_HLY
+#query for datasetid=TEMP also says everyting but precip includes var TEMP???? 
+#query for daily data feb 2021
+# z <- x
+# zframe <- data.frame()
+# for(i in seq(1, length(z$results), 1)){
+#   zframe<- rbind(zframe, z$results[[i]])
+# }
+# tx_1 <- zframe
+# #unique(zframe$datatype) #"PRCP" "SNOW" "SNWD" "DAPR" "MDPR" "WESD" "WESF" #no temp in GHCND, GSOY
+# #pulls 7 vars from every station in tx for the specified time period
+# z <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=FIPS:48&startdate=2020-02-01&enddate=2020-02-01&offset=1001&limit=1000', add_headers(token=token)) %>% content()
+# zframe <- data.frame()
+# for(i in seq(1, length(z$results), 1)){
+#   zframe<- rbind(zframe, z$results[[i]])
+# }
+# tx_2 <- zframe
+
+#can functionalize this better 
+```
+
+```{r}
+temp_results <- GET('https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=FIPS:48&startdate=2020-02-10&enddate=2020-02-10&offset=4001&limit=1000', add_headers(token=token)) %>% content()
+temp_frame <- data.frame()
+for(i in seq(1, length(temp_results$results), 1)){
+  temp_frame <- rbind(temp_frame, temp_results$results[[i]])
+}
+
+
+```
+
+```{r}
+#functionalize pulling all the data from a single day from GHNCD from FIPS:48 (TX)
+#designed to iterate through a set of offsets (start location) from 1, 1001, 2001, ect 
+daypull <- function(dataset_id, location_id, date, offset){
+  temp_url <- paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/data',
+                     '?datasetid=',dataset_id,
+                     '&locationid=', location_id,
+                     '&startdate=', date, 
+                     '&enddate=', date, 
+                     '&offset=', offset, 
+                     '&limit=1000')
+  temp_results <- GET(temp_url, add_headers(token=token)) %>% content()
+  
+  temp_frame <- data.frame()
+  
+  #function will fail if page number exceeds records, need to add an exception for when results come back erroneous
+  if(temp_results$statusCode != '200'){
+    temp_frame <- rbind(temp_frame, c('error code', temp_results$statusCode, 'NA', 'NA', 'NA'))
+  }  else{ #note, else needs to be on the same line as the closing bracket of if (but why???? )
+    for(i in seq(1, length(temp_results$results), 1)){
+      temp_frame <- rbind(temp_frame, temp_results$results[[i]])
+    }
+  }
+  return(temp_frame)
+  #return(temp_results$statusCode)
+}
+
+page_spaces <- function(pages){
+  endpage <- paste0((pages -1), '001') %>% as.numeric
+  page_sequence <- seq(1, endpage, 1000)
+  return(page_sequence)
+}
+
+#might need to add a timer/spacer to not pull too much from the site and get locked??? is that a thing i can measure??? 
+```
+
+
+```{r}
+day_frame <- data.frame()
+pages <- page_spaces(5) #just guess how many records there are? 4000ish for a single day on feb1, 2021
+for(p in pages){
+  semi_day_frame <- daypull('GHCND', 'FIPS:48', date_seq[10], '1')#as.character(p))
+  day_frame <- rbind(day_frame, semi_day_frame)
+}
+```
+
+now to iterate by date
+```{r}
+month_frame <- data.frame()
+date_seq <- seq.Date(as.Date('2021-02-01'), as.Date('2021-02-28'), 'day')
+pages <- page_spaces(5) #just guess how many records there are? 4000ish for a single day on feb1, 2021
+for(date in date_seq){
+  day_frame <- data.frame()
+  for(p in pages){
+    semi_day_frame <- daypull('GHCND', 'FIPS:48', date, as.character(p))
+    day_frame <- rbind(day_frame, semi_day_frame)
+  }
+  month_frame <- rbind(month_frame, day_frame)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
