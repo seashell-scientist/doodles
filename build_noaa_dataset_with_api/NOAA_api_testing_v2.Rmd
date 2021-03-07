@@ -48,7 +48,7 @@ library(DT)
 
 #offical api approach using GET
 Email: 	'salarian.seashell.scientist@gmail.com'
-Token: 	
+Token: 	get from - https://www.ncdc.noaa.gov/cdo-web/webservices/v2#gettingStarted
 using https://www.ncdc.noaa.gov/cdo-web/webservices/v2#datasets
 
 ```{r}
@@ -163,15 +163,19 @@ daypull <- function(dataset_id, location_id, date, offset){
 
 
 ```{r}
-day_frame <- data.frame()
-pages <- page_spaces(5) #just guess how many records there are? 4000ish for a single day on feb1, 2021
-for(p in pages){
-  semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', '1')#as.character(p))
-  day_frame <- rbind(day_frame, semi_day_frame)
-}
+# #outdated
+# day_frame <- data.frame()
+# pages <-
+#   page_spaces(5) #just guess how many records there are? 4000ish for a single day on feb1, 2021
+# for (p in pages) {
+#   semi_day_frame <-
+#     daypull('GHCND', 'FIPS:48', '2021-02-01', '1')#as.character(p))
+#   day_frame <- rbind(day_frame, semi_day_frame)
+# }
 ```
 
 ```{r}
+#test 'bucket sensor'
 #problem- not all dates will have 5 pages of results, too many causes crash
 #solution - iterate through pages WHILE the resulting frames are == max limit pulled, indicating there's still 'at least one more bucket to fill', and stop when it gets back a 'non full bucket' 
 day_frame <- data.frame()
@@ -183,14 +187,22 @@ while(r == 1000){
   r <- dim(semi_day_frame)[1]
   i <- i+1 #advance page offset from 0001, 1001, 2001, 3001, ect
   day_frame <- rbind(day_frame, semi_day_frame)
-  #print(paste0('iteration ', i, ' dim: ', dim(semi_day_frame)))
+  print(paste0('iteration ', i, ' dim: ', dim(semi_day_frame)))
 }
 
 ```
 now to iterate by date, start with 1 month
 ```{r}
 month_frame <- data.frame()
-date_seq <- seq.Date(as.Date('2021-02-01'), as.Date('2021-02-28'), 'day') %>% as.character() #all api inputs must be char
+#date_seq <- seq.Date(as.Date('2021-02-01'), as.Date('2021-02-28'), 'day') %>% as.character() #all api inputs must be char
+#expand to beginning of year
+date_seq <- seq.Date(as.Date('2021-01-01'), as.Date('2021-02-28'), 'day') %>% as.character()
+
+#time calc, avg 4-5 pages per day, avg 15-20 s per page
+start_time <- Sys.time()
+est_time <- paste0('Estimated Time: ', (((length(date_seq) * 45)/60) %>% round(4) %>% format()), 'mins')
+print(est_time)
+
 for(d in date_seq){
   day_frame <- data.frame()
   # for(p in pages){
@@ -211,10 +223,13 @@ for(d in date_seq){
   }
   month_frame <- rbind(month_frame, day_frame)
 }
-```
+end_time <- Sys.time()
 
+print(end_time - start_time)
+```
+took a lot longer than expected with the shorter page grabs 
 ```{r}
-dim(month_frame)
+#save to csv 
+write.csv(month_frame, file = file.choose(new = T))
 ```
-wahahah it works, now just to iterate over multiple monthssss
-
+and there we have some data
