@@ -37,10 +37,23 @@ pull in station to location data to add location column(s) to dataset
 location <- read.csv(file.choose()) #stations tx coordinates
 head(location)
 ```
+```{r}
+# lframe <- data.frame() #create df with matching locations to stations
+# for(r in df$station){
+#   temp_row <- location[location$station_code == r, ]
+#   lframe <- rbind(lframe, temp_row)
+# }
+# #then cbind onto df
+#inner join takes care of the matching
+```
+
+```{r}
+tx <- inner_join(location, df, by= 'station')
+```
 
 ```{r}
 #looking at a single station
-s1 <- df[df$station==unique(df$station)[1], ]
+s1 <- tx[tx$station==unique(tx$station)[1], ]
 
 ```
 
@@ -48,6 +61,39 @@ s1 <- df[df$station==unique(df$station)[1], ]
 ```{r}
 head(s1)
 ```
+
+
+```{r}
+#x <- s1[s1$datatype == 'SNOW', ]
+s1[s1$datatype == 'SNOW', ]
+```
+
+```{r}
+x <- tx[grepl('HOUSTON', tx$name), ]
+unique(x$name)
+unique(x$station)
+```
+
+isolate 1month daily data from airport example
+```{r}
+y <- tx[tx$station == 'GHCND:USW00053910', ]
+unique(y$datatype)
+y[y$datatype == 'TMAX', ]
+```
+???  txmax of -50? have to double check the units
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
