@@ -92,7 +92,10 @@ names(typelist_frame) <- c('id', 'name', 'mindate', 'maxdate', 'datacoverage')
 typelist_full <- rbind(tframe_A, typelist_frame)
 datatable(typelist_full)
 ```
-
+```{r}
+#export list of variables for later use 
+#write.csv(typelist_full, file = file.choose(new = T))
+```
 ```{r}
 #list of locations
 
@@ -125,7 +128,10 @@ datatable(big_page)
 ```
 
 
-
+```{r}
+#export list of locations for later use 
+#write.csv(big_page, file = file.choose(new = T))
+```
 
 
 ```{r}
@@ -178,25 +184,25 @@ daypull <- function(dataset_id, location_id, date, offset){
 #test 'bucket sensor'
 #problem- not all dates will have 5 pages of results, too many causes crash
 #solution - iterate through pages WHILE the resulting frames are == max limit pulled, indicating there's still 'at least one more bucket to fill', and stop when it gets back a 'non full bucket' 
-day_frame <- data.frame()
-r <- 1000
-i <- 0
-while(r == 1000){
-  page_spacer <- paste0(as.character(i), '001')
-  semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', page_spacer)
-  r <- dim(semi_day_frame)[1]
-  i <- i+1 #advance page offset from 0001, 1001, 2001, 3001, ect
-  day_frame <- rbind(day_frame, semi_day_frame)
-  print(paste0('iteration ', i, ' dim: ', dim(semi_day_frame)))
-}
+# day_frame <- data.frame()
+# r <- 1000
+# i <- 0
+# while(r == 1000){
+#   page_spacer <- paste0(as.character(i), '001')
+#   semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', page_spacer)
+#   r <- dim(semi_day_frame)[1]
+#   i <- i+1 #advance page offset from 0001, 1001, 2001, 3001, ect
+#   day_frame <- rbind(day_frame, semi_day_frame)
+#   print(paste0('iteration ', i, ' dim: ', dim(semi_day_frame)))
+# }
 
 ```
 now to iterate by date, start with 1 month
 ```{r}
 month_frame <- data.frame()
-#date_seq <- seq.Date(as.Date('2021-02-01'), as.Date('2021-02-28'), 'day') %>% as.character() #all api inputs must be char
+date_seq <- seq.Date(as.Date('2021-02-01'), as.Date('2021-02-28'), 'day') %>% as.character() #all api inputs must be char
 #expand to beginning of year
-date_seq <- seq.Date(as.Date('2021-01-01'), as.Date('2021-02-28'), 'day') %>% as.character()
+#date_seq <- seq.Date(as.Date('2021-01-01'), as.Date('2021-02-28'), 'day') %>% as.character()
 
 #time calc, avg 4-5 pages per day, avg 15-20 s per page
 start_time <- Sys.time()
@@ -214,7 +220,7 @@ for(d in date_seq){
   i <- 0
   while(r == 1000){ #checks to get number of pages right!
     page_spacer <- paste0(as.character(i), '001')
-    semi_day_frame <- daypull('GHCND', 'FIPS:48', '2021-02-01', page_spacer)
+    semi_day_frame <- daypull('GHCND', 'FIPS:48', d, page_spacer)
     r <- dim(semi_day_frame)[1]
     i <- i+1 #advance page offset from 0001, 1001, 2001, 3001, ect
     day_frame <- rbind(day_frame, semi_day_frame)
@@ -233,3 +239,17 @@ took a lot longer than expected with the shorter page grabs
 write.csv(month_frame, file = file.choose(new = T))
 ```
 and there we have some data
+
+
+get zip code/coordinates per specified station
+```{r}
+#where df is the tx 1 month GNCHD
+station_list <- unique(df$station)
+station_coords <- data.frame()
+for(s in station_list){
+  temp_results <- GET(paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/stations/', s), add_headers(token=token)) %>% content()
+  station_coords <- rbind(station_coords, c(s, temp_results$latitude, temp_results$longitude, temp_results$name))
+}
+write.csv(station_coords, file = file.choose(new = T))
+```
+

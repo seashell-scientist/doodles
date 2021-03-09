@@ -1,0 +1,65 @@
+---
+title: "NOAA data analysis"
+output: html_notebook
+---
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tswge)
+```
+
+read in GNCHD data from NOAA_api_testing
+```{r}
+df <- read.csv(file.choose())
+```
+```{r}
+head(df)
+```
+
+Attributes are
+Date - YYYY-MM-DD T H:M:S
+Datatype - PRCP, SNOW, 
+Station - location of data intake
+attributes - ? 
+value - datatype dependent 
+
+
+```{r}
+unique(df$datatype)
+length(unique(df$station)) #1596 stations
+unique(df$attributes)
+```
+pull in station to zip code to add location column to dataset 
+
+```{r}
+
+
+```
+
+```{r}
+#looking at a single station
+s1 <- df[df$station==unique(df$station)[1], ]
+
+```
+
+
+```{r}
+head(s1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
