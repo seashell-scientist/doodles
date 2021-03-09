@@ -49,6 +49,9 @@ head(location)
 
 ```{r}
 tx <- inner_join(location, df, by= 'station')
+tx <- tx[c(-1, -6)]
+tx <- tx[c(5, 1, 6, 7, 8, 4, 2, 3)]
+head(tx)
 ```
 
 ```{r}

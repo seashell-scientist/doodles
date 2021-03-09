@@ -4605,17 +4605,6 @@ write.csv(month_frame, file = file.choose(new = T))</code></pre>
 <p>get zip code/coordinates per specified station</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuI3doZXJlIGRmIGlzIHRoZSB0eCAxIG1vbnRoIEdOQ0hEXG5zdGF0aW9uX2xpc3QgPC0gdW5pcXVlKGRmJHN0YXRpb24pXG5zdGF0aW9uX2Nvb3JkcyA8LSBkYXRhLmZyYW1lKClcbmZvcihzIGluIHN0YXRpb25fbGlzdCl7XG4gIHRlbXBfcmVzdWx0cyA8LSBHRVQocGFzdGUwKCdodHRwczovL3d3dy5uY2RjLm5vYWEuZ292L2Nkby13ZWIvYXBpL3YyL3N0YXRpb25zLycsIHMpLCBhZGRfaGVhZGVycyh0b2tlbj10b2tlbikpICU+JSBjb250ZW50KClcbiAgc3RhdGlvbl9jb29yZHMgPC0gcmJpbmQoc3RhdGlvbl9jb29yZHMsIGMocywgdGVtcF9yZXN1bHRzJGxhdGl0dWRlLCB0ZW1wX3Jlc3VsdHMkbG9uZ2l0dWRlLCB0ZW1wX3Jlc3VsdHMkbmFtZSkpXG59XG5uYW1lcyhzdGF0aW9uX2Nvb3JkcykgPC0gYygnc3RhdGlvbicsICdsYXQnLCAnbG9uZycsICduYW1lJylcbndyaXRlLmNzdihzdGF0aW9uX2Nvb3JkcywgZmlsZSA9IGZpbGUuY2hvb3NlKG5ldyA9IFQpKSAjc3RhdGlvbnMgdHggY29vcmRpbmF0ZXNcbmBgYCJ9 -->
-<pre class="r"><code>#where df is the tx 1 month GNCHD
-station_list &lt;- unique(df$station)
-station_coords &lt;- data.frame()
-for(s in station_list){
-  temp_results &lt;- GET(paste0(&#39;https://www.ncdc.noaa.gov/cdo-web/api/v2/stations/&#39;, s), add_headers(token=token)) %&gt;% content()
-  station_coords &lt;- rbind(station_coords, c(s, temp_results$latitude, temp_results$longitude, temp_results$name))
-}
-names(station_coords) &lt;- c(&#39;station&#39;, &#39;lat&#39;, &#39;long&#39;, &#39;name&#39;)
-write.csv(station_coords, file = file.choose(new = T)) #stations tx coordinates</code></pre>
-<!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
