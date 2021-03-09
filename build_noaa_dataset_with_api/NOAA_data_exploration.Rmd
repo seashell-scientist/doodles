@@ -31,11 +31,11 @@ unique(df$datatype)
 length(unique(df$station)) #1596 stations
 unique(df$attributes)
 ```
-pull in station to zip code to add location column to dataset 
+pull in station to location data to add location column(s) to dataset 
 
 ```{r}
-
-
+location <- read.csv(file.choose()) #stations tx coordinates
+head(location)
 ```
 
 ```{r}

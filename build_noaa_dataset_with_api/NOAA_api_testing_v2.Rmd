@@ -250,6 +250,7 @@ for(s in station_list){
   temp_results <- GET(paste0('https://www.ncdc.noaa.gov/cdo-web/api/v2/stations/', s), add_headers(token=token)) %>% content()
   station_coords <- rbind(station_coords, c(s, temp_results$latitude, temp_results$longitude, temp_results$name))
 }
-write.csv(station_coords, file = file.choose(new = T))
+names(station_coords) <- c('station_code', 'lat', 'long', 'name')
+write.csv(station_coords, file = file.choose(new = T)) #stations tx coordinates
 ```
 

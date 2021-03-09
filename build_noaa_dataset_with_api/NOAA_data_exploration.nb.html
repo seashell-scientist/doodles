@@ -1836,9 +1836,20 @@ library(tswge)</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>pull in station to zip code to add location column to dataset</p>
+<p>pull in station to location data to add location column(s) to dataset</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubG9jYXRpb24gPC0gcmVhZC5jc3YoZmlsZS5jaG9vc2UoKSlcbmhlYWQobG9jYXRpb24pXG5gYGAifQ== -->
+<pre class="r"><code>location &lt;- read.csv(file.choose())
+head(location)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-frame-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbImRhdGEuZnJhbWUiXSwibnJvdyI6NiwibmNvbCI6NX0sInJkZiI6Ikg0c0lBQUFBQUFBQUJndHlpVERtaXVCaVlHQmdabUJoWUdKZ1pnVXlHZGljQXd5TlRJMFlHRmlZZ0R4R29Bd25pSzRBcWhJR01rQnFlRUhLd0pJTURFeGc3VURWVURtUXVBQ1lobWdVZFBkdzluT3hDZzAyRElsd2REWXdNTERFSnVFT2xEREVKV0dFUzhJWWw0UVpOZ2svc09VTURId2cxems0dkpvcFBubFdqWU45a05ORE5RVlZCM3ZWcW9vY3BRd0hlOS9WODBObjJ6cll4OXdFZW9mRndmN2ZlNjZuWmdFd2ZRY2lGdm1hSHpUUFBSQytqZnVLNTR3TEI4Sm5yQVZwT0JDKzRZTHdTaTJEQStHYlYwOFhZR0ErRVA2MjdGM3hzeWEwMEpBSjkzVDI4QXh4VkhCejlQRUpWakRSTTFNSURnN1hVUWlKVUFnTmhxb1I5Z2wxOC9iMFV6RFhNMUJBa3hLTGNnd0RhblJVTUFMS3VRYTdvc3FLUURVYUF5WFJEUldGeXBucUdTbUUrNkZKU2dZNCtyZ0doM2o2dVNvWWdtejFReWhBVFFXc2VZbTVxY1ZRUDdIQ2trWUVsTUZUWEpKWWtwbWZGNStjbjVJS0ZXUE9TU3lCTWxseTh2UFNZV3lRUVdpR2N4YmxsK3ZCTEFBbE1hWUdCakJnUTNkRmNrNWlNY3dWTUVHdWxNU1NSTDIwSXJDNURQL1F0TERuRjRCY0J0VEVCRXZFeUpvWmk5QUUrRXZ6UUM1SjBVM09LTTNMMWpVRVdRQk44SXhRMXpGQ0V6dU16UXF4a3VrL1d2Q3dwZWFsWitiQndvTTFKekVwTlFmSzRRUDZHT3hodllLaXpEeFlPSEVCUll2MVN2SkxFbUhxdUpMemMyQWlZTDh4L0FNQWNXT1h2THdEQUFBPSJ9 -->
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["X"],"name":[1],"type":["int"],"align":["right"]},{"label":["station_code"],"name":[2],"type":["chr"],"align":["left"]},{"label":["lat"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["long"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["name"],"name":[5],"type":["chr"],"align":["left"]}],"data":[{"1":"1","2":"GHCND:US1TXAC0009","3":"33.83280","4":"-98.53596","5":"WICHITA FALLS 4.6 SSW, TX US","_rn_":"1"},{"1":"2","2":"GHCND:US1TXAG0001","3":"31.32133","4":"-94.84447","5":"LUFKIN 7.0 W, TX US","_rn_":"2"},{"1":"3","2":"GHCND:US1TXAG0002","3":"31.14640","4":"-94.38560","5":"ZAVALLA 2.0 ESE, TX US","_rn_":"3"},{"1":"4","2":"GHCND:US1TXAG0003","3":"31.30340","4":"-94.76270","5":"LUFKIN 3.0 SW, TX US","_rn_":"4"},{"1":"5","2":"GHCND:US1TXAG0006","3":"31.36269","4":"-94.80735","5":"LUFKIN 5.2 WNW, TX US","_rn_":"5"},{"1":"6","2":"GHCND:US1TXAN0009","3":"31.99583","4":"-95.71038","5":"PALESTINE 17.0 NNW, TX US","_rn_":"6"}],"options":{"columns":{"min":{},"max":[10],"total":[5]},"rows":{"min":[10],"max":[10],"total":[6]},"pages":{}}}
+  </script>
+</div>
+<!-- rnb-frame-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
@@ -1866,7 +1877,7 @@ s1 &lt;- df[df$station==unique(df$station)[1], ]
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIk5PQUEgZGF0YSBhbmFseXNpcyINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCg0KYGBge3J9DQpsaWJyYXJ5KGRwbHlyKQ0KbGlicmFyeShnZ3Bsb3QyKQ0KbGlicmFyeSh0c3dnZSkNCmBgYA0KDQpyZWFkIGluIEdOQ0hEIGRhdGEgZnJvbSBOT0FBX2FwaV90ZXN0aW5nDQpgYGB7cn0NCmRmIDwtIHJlYWQuY3N2KGZpbGUuY2hvb3NlKCkpDQpgYGANCmBgYHtyfQ0KaGVhZChkZikNCmBgYA0KDQpBdHRyaWJ1dGVzIGFyZQ0KRGF0ZSAtIFlZWVktTU0tREQgVCBIOk06Uw0KRGF0YXR5cGUgLSBQUkNQLCBTTk9XLCANClN0YXRpb24gLSBsb2NhdGlvbiBvZiBkYXRhIGludGFrZQ0KYXR0cmlidXRlcyAtID8gDQp2YWx1ZSAtIGRhdGF0eXBlIGRlcGVuZGVudCANCg0KDQpgYGB7cn0NCnVuaXF1ZShkZiRkYXRhdHlwZSkNCmxlbmd0aCh1bmlxdWUoZGYkc3RhdGlvbikpICMxNTk2IHN0YXRpb25zDQp1bmlxdWUoZGYkYXR0cmlidXRlcykNCmBgYA0KcHVsbCBpbiBzdGF0aW9uIHRvIHppcCBjb2RlIHRvIGFkZCBsb2NhdGlvbiBjb2x1bW4gdG8gZGF0YXNldCANCg0KYGBge3J9DQoNCg0KYGBgDQoNCmBgYHtyfQ0KI2xvb2tpbmcgYXQgYSBzaW5nbGUgc3RhdGlvbg0KczEgPC0gZGZbZGYkc3RhdGlvbj09dW5pcXVlKGRmJHN0YXRpb24pWzFdLCBdDQoNCmBgYA0KDQoNCmBgYHtyfQ0KaGVhZChzMSkNCmBgYA0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0K</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIk5PQUEgZGF0YSBhbmFseXNpcyINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCg0KYGBge3J9DQpsaWJyYXJ5KGRwbHlyKQ0KbGlicmFyeShnZ3Bsb3QyKQ0KbGlicmFyeSh0c3dnZSkNCmBgYA0KDQpyZWFkIGluIEdOQ0hEIGRhdGEgZnJvbSBOT0FBX2FwaV90ZXN0aW5nDQpgYGB7cn0NCmRmIDwtIHJlYWQuY3N2KGZpbGUuY2hvb3NlKCkpDQpgYGANCmBgYHtyfQ0KaGVhZChkZikNCmBgYA0KDQpBdHRyaWJ1dGVzIGFyZQ0KRGF0ZSAtIFlZWVktTU0tREQgVCBIOk06Uw0KRGF0YXR5cGUgLSBQUkNQLCBTTk9XLCANClN0YXRpb24gLSBsb2NhdGlvbiBvZiBkYXRhIGludGFrZQ0KYXR0cmlidXRlcyAtID8gDQp2YWx1ZSAtIGRhdGF0eXBlIGRlcGVuZGVudCANCg0KDQpgYGB7cn0NCnVuaXF1ZShkZiRkYXRhdHlwZSkNCmxlbmd0aCh1bmlxdWUoZGYkc3RhdGlvbikpICMxNTk2IHN0YXRpb25zDQp1bmlxdWUoZGYkYXR0cmlidXRlcykNCmBgYA0KcHVsbCBpbiBzdGF0aW9uIHRvIGxvY2F0aW9uIGRhdGEgdG8gYWRkIGxvY2F0aW9uIGNvbHVtbihzKSB0byBkYXRhc2V0IA0KDQpgYGB7cn0NCmxvY2F0aW9uIDwtIHJlYWQuY3N2KGZpbGUuY2hvb3NlKCkpICNzdGF0aW9ucyB0eCBjb29yZGluYXRlcw0KaGVhZChsb2NhdGlvbikNCmBgYA0KDQpgYGB7cn0NCiNsb29raW5nIGF0IGEgc2luZ2xlIHN0YXRpb24NCnMxIDwtIGRmW2RmJHN0YXRpb249PXVuaXF1ZShkZiRzdGF0aW9uKVsxXSwgXQ0KDQpgYGANCg0KDQpgYGB7cn0NCmhlYWQoczEpDQpgYGANCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg==</div>
 
 
 
