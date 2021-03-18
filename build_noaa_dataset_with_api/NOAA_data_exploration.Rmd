@@ -13,8 +13,6 @@ library(tswge)
 read in GNCHD data from NOAA_api_testing
 ```{r}
 df <- read.csv(file.choose())
-```
-```{r}
 head(df)
 ```
 
@@ -27,25 +25,16 @@ value - datatype dependent
 
 
 ```{r}
-unique(df$datatype)
-length(unique(df$station)) #1596 stations
-unique(df$attributes)
-```
-pull in station to location data to add location column(s) to dataset 
+# unique(df$datatype)
+# length(unique(df$station)) #1596 stations
+# unique(df$attributes)
 
-```{r}
+#pull in station to location data to add location column(s) to dataset 
+
 location <- read.csv(file.choose()) #stations tx coordinates
 head(location)
 ```
-```{r}
-# lframe <- data.frame() #create df with matching locations to stations
-# for(r in df$station){
-#   temp_row <- location[location$station_code == r, ]
-#   lframe <- rbind(lframe, temp_row)
-# }
-# #then cbind onto df
-#inner join takes care of the matching
-```
+
 
 ```{r}
 tx <- inner_join(location, df, by= 'station')
@@ -54,25 +43,10 @@ tx <- tx[c(5, 1, 6, 7, 8, 4, 2, 3)]
 head(tx)
 ```
 
-```{r}
-#looking at a single station
-s1 <- tx[tx$station==unique(tx$station)[1], ]
-
-```
-
-
-```{r}
-head(s1)
-```
-
-
-```{r}
-#x <- s1[s1$datatype == 'SNOW', ]
-s1[s1$datatype == 'SNOW', ]
-```
 
 ```{r}
 x <- tx[grepl('HOUSTON', tx$name), ]
+unique(x$datatype)
 unique(x$name)
 unique(x$station)
 ```
@@ -81,23 +55,122 @@ isolate 1month daily data from airport example
 ```{r}
 y <- tx[tx$station == 'GHCND:USW00053910', ]
 unique(y$datatype)
-y[y$datatype == 'TMAX', ]
+z <- y[y$datatype == 'PRCP', ]
 ```
-???  txmax of -50? have to double check the units
+```{r}
+plotts.wge(z$value)
+```
+
+map to gps coords - https://ggplot2.tidyverse.org/reference/coord_map.html
+
+```{r}
+# if (require("maps")) {
+#   states <- map_data("state")
+#   usamap <- ggplot() +
+#     geom_polygon(data = states, aes(long, lat, group = group), fill = "white", colour = "black") +
+#     geom_point(data = value1, aes(x = lat, y = long, fill = PRCP))# + 
+#   
+#   #scale_y_continuous(limits = c(25, 37)) +
+#   #scale_x_continuous(limits = c(-107, -90))
+#   #limits look gross, got to be a better way to get a single state
+#   # Use cartesian coordinates
+#   usamap
+# }
+
+```
+
+plotting locations with google maps api
+```{r}
+library(ggmap)
+token <- read.delim('D:\\SMU\\extra curriculars\\google_maps_api.txt')[[1]]
+register_google(key = paste0("[", token, ']'))
+```
+snapshot of all stations feb 1
+```{r} 
+f1 <- tx[tx$date == '2021-02-01T00:00:00', ]
+value1 <- f1[c('lat', 'long', 'value')]
+
+#add normalized value column
+# x <- data.frame()
+# for(v in value1$value){ 
+#   z <- (v-min(value1$value))/(max(value1$value)-min(value1$value))
+#   x <- rbind(x, z)
+# }
+# value1 <- cbind(value1, x)
+names(value1) <- c('lat', 'long', 'PRCP') #, 'normalized_PRCP')
+
+us <- c(left = min(value1$lat)-0.6, bottom = min(value1$long)-0.6, right = max(value1$lat)+0.6, top = max(value1$long)+0.6)
+#map <- get_stamenmap(us, zoom = 5, maptype = "toner-lite") %>% ggmap() 
+# map <- map + 
+#   geom_point(data = value1, aes(x = lat, y =long, color = PRCP, size = PRCP),shape = '*', alpha = .05) +
+#   scale_colour_gradient(low = 'brown',  high = 'steelblue')
+
+map <- ggmap(get_stamenmap(us, zoom = 5, maptype = 'toner-lite')) +
+  geom_point(data = value1, aes(x = lat, y =long, color = PRCP, size = PRCP),shape = '*', alpha = .05)+
+  scale_colour_gradient(low = 'brown',  high = 'steelblue') +
+  ggtitle(paste0('2021-02-01' ))
+
+#stat_density_2d(data = value1, aes(fill = ..normalized_PRCP..), geom = "polygon", alpha = .3, color = NA) +
+#scale_fill_gradient2("PRCP", low = "white", mid = "yellow", high = "red", midpoint = .5)
+
+map
+#add in a color factor for PRCP> some amount? right now there are too many 0's to make out points of interest, could omit zeroes?
+```
 
 
 
+```{r}
+#plot per day of month
+dom <- tx$date %>% unique() %>% sort()
 
+for(d in dom){
+  f1 <- tx[tx$date == d, ]
+  value1 <- f1[c('lat', 'long', 'value')]
+  names(value1) <- c('lat', 'long', 'PRCP') #, 'normalized_PRCP')
+  
+  us <- c(left = min(value1$lat)-0.6, bottom = min(value1$long)-0.6, right = max(value1$lat)+0.6, top = max(value1$long)+0.6)
+  map <- get_stamenmap(us, zoom = 5, maptype = "toner-lite") %>% ggmap() 
+  
+  map <- map + 
+    geom_point(data = value1, aes(x = lat, y =long, color = PRCP), alpha = .11) +
+    scale_colour_gradient(low = 'brown',  high = 'steelblue')+
+    ggtitle(d)
+  map
+  temp_name <- paste0('prcp_map', substring(d, 1, 10))
+  assign(temp_name, map)
+  ggsave(path = 'D:/SMU/Github Projects/doodles/build_noaa_dataset_with_api/tx_prcp_plots',
+         filename = paste(temp_name, '.png'))
+  
+}
 
+```
+gif?
+```{r}
+library(animation)
+```
+```{r}
+saveGIF({
+  #for (i in 1:10) plot(runif(10), ylim = 0:1)
+  for(d in dom){
+    f1 <- tx[tx$date == '2021-02-01T00:00:00', ]
+    value1 <- f1[c('lat', 'long', 'value')]
+    names(value1) <- c('lat', 'long', 'PRCP') #, 'normalized_PRCP')
+    
+    us <- c(left = min(value1$lat)-0.6, bottom = min(value1$long)-0.6, right = max(value1$lat)+0.6, top = max(value1$long)+0.6)
+    map <- ggmap(get_stamenmap(us, zoom = 5, maptype = 'toner-lite')) +
+      geom_point(data = value1, aes(x = lat, y =long, color = PRCP, size = PRCP),shape = '*', alpha = .05)+
+      scale_colour_gradient(low = 'brown',  high = 'steelblue')
+  }
+})
+#hmmm
+```
 
-
-
-
-
-
-
-
-
+```{r}
+# saveGIF({
+#   brownian.motion(pch = 21, cex = 5, col = "red", bg = "yellow")
+# }, movie.name = "brownian_motion2.gif", interval = runif(30, 
+#   0.01, 1), nmax = 100)
+```
 
 
 

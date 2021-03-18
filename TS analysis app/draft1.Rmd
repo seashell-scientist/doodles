@@ -1,0 +1,387 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ts analysis app drafting
+goal - input a univariate time series and return visualizations, and forecast metrics for different TS algorithms
+
+
+```{r}
+df <- read.csv(file.choose())
+names(df) <- c('units', 'date')
+df$date <- df$date %>% as.Date()
+```
+
+```{r}
+#algorithms
+library(rmdformats)
+library(tidyverse)  # data manipulation
+library(data.table)
+#library(tswge)  # Time series package
+library(tseries)  # for Dickey-Fuller test 
+library(orcutt)  # for Cochrane-Orcutt test
+library(formattable)  # for table formatting
+library(GGally)
+library(astsa)
+library(nnfor)
+library(dplyr)
+library(ggplot2)
+library(changepoint)
+library(date)
+library(R.devices)
+
+### A series of functions used in a time series analysis dashboard capstone project for MSDS at SMU ###
+
+#Equal Means
+#accept df object and return forecasts n_ahead
+em_ts <- function(n_ahead, target_df){
+  return(rep((mean(target_df$units)),  n_ahead))}
+
+#bootleg AIC5 with no tswge
+#target_vector <- target_df$STD_Cases 
+aic_boot <- function(target_vector){
+  pqc <- expand.grid(0:5, 0:2)
+  aic_holder <- vector()
+  p_holder <- vector()
+  q_holder <- vector()
+  for(i in 1:length(pqc$Var1)) {
+    temp_model <- arima(target_vector, order = c(pqc[i, 1], 0, pqc[i, 2]))
+    #aic_holder <- append(aic_holder, temp_model$aic) #base AIC with k = 2?
+    aic_holder[i] <- AIC(temp_model, k = log(length(target_vector)))
+    p_holder <- append(p_holder, pqc[i, 1])
+    q_holder <- append(q_holder, pqc[i, 2])}
+  aic_results <- data.frame(p = p_holder, q = q_holder, aic = aic_holder)
+  aic_results <- aic_results[order(aic_results$aic), ]
+  return(head(aic_results, 1))
+}
+
+aic_boot2 <- function(target_vector){
+  pqc <- expand.grid(0:5, 0:2)
+  aic_holder <- vector()
+  p_holder <- vector()
+  q_holder <- vector()
+  for(i in 1:length(pqc$Var1)) {
+    temp_model <- arima(target_vector, order = c(pqc[i, 1], 0, pqc[i, 2]), method = 'ML')
+    #aic_holder <- append(aic_holder, temp_model$aic) #base AIC with k = 2?
+    aic_holder[i] <- AIC(temp_model, k = log(length(target_vector)))
+    p_holder <- append(p_holder, pqc[i, 1])
+    q_holder <- append(q_holder, pqc[i, 2])}
+  aic_results <- data.frame(p = p_holder, q = q_holder, aic = aic_holder)
+  aic_results <- aic_results[order(aic_results$aic), ]
+  return(head(aic_results, 1))
+}
+
+#AR model bootleg
+ar_ts_boot <- function(n_ahead, df){
+  aic_temp <- aic_boot2(df[, 1])
+  if (aic_temp$p == 0){
+    newphi = 1}
+  else{newphi = aic_temp$p}
+  model_temp <- arima0(df$units, order = c(newphi, 0, 0), method = 'ML') #note q is zero for AR model
+  pred_temp <- invisible(predict(model_temp, n_ahead))
+  return(pred_temp$pred)
+}
+
+arma_ts_boot <- function(n_ahead, df){
+  aic_temp <- aic_boot2(df[, 1])
+  if (aic_temp$p == 0){
+    newphi = 1}
+  else newphi = aic_temp$p #error if inside curly brackets??? 
+  model_temp <- arima0(df$units, order = c(aic_temp$p, 0, newphi)) #note q is not zero for ARMA model
+  pred_temp <- predict(model_temp, n_ahead) %>% invisible()
+  return(pred_temp$pred)
+}
+
+#ARI no tswge
+ari_ts_boot <- function(n_ahead, df){
+  diff1 <- diff(df$units)
+  aic_temp <- aic_boot2(diff1)
+  if (aic_temp$p == 0){
+    newphi = 1}
+  else{newphi = aic_temp$p}
+  pred_temp <- predict(arima0(df$units, order = c(newphi, 1, 0)), n.ahead = n_ahead)
+  return(pred_temp$pred)
+}
+
+#no tswge
+arima_ts_boot <- function(n_ahead, df){
+  diff1 = diff(df$units)
+  aic_temp <- aic_boot2(diff1)
+  if (aic_temp$p == 0){
+    newphi = 1}
+  else{newphi = aic_temp$p}
+  pred_temp <- predict(arima0(df$units, order = c(newphi, 1, aic_temp$q)), n.ahead = n_ahead)
+  return(pred_temp$pred) #consider replacing df$units with df[, 1] to be name agnostic, if there's a way to guarantee the df from csv is column 1 data column 2 date
+}
+
+#bootleg ARI_S12
+ari_s12_ts_boot <- function(n_ahead, df){
+  diff1 <- diff(df$units)
+  aic_temp <- aic_boot2(diff1)
+  if (aic_temp$p == 0){
+    newphi = 1
+  } else {
+    newphi = aic_temp$p
+  } 
+  pred_temp <- predict(arima0(df$units, order = c(newphi, 0, 0), seasonal = c(0, 0, 12)), n.ahead = n_ahead)
+  return(pred_temp$pred) 
+  }
+
+#bootleg ARIMA_S12
+arima_s12_ts_boot <- function(n_ahead, df){
+  diff1 <- diff(df$units)
+  aic_temp <- aic_boot2(diff1)
+  if (aic_temp$p == 0){
+    newphi = 1
+  } else {
+    newphi = aic_temp$p
+  } 
+  pred_temp <- predict(arima0(df$units, order = c(newphi, 0, aic_temp$q), seasonal = c(0, 0, 12)), n.ahead = n_ahead)
+  return(pred_temp$pred) }
+#arima_s12_ts_boot(5, target_df) #+2% off from the tswge function
+
+#RF function
+library(ranger)
+library(randomForest)
+library(caret)
+#with no graph
+rf_ts <- function(n_ahead, df){ #can add in df with additional variables, ex units, date, sales
+  #target_df$date <- as.Date(target_df$date, '%m/%d/%Y')
+  tlen = length(df[, 1])
+  sample_train <- df[1:(tlen-n_ahead), ]
+  sample_test <- df[(tlen-n_ahead +1):tlen, ]
+  #sample_test[, 3][is.na(sample_test[, 3])] <- 0 #check 3rd var for NA, convert to zero if found
+  rf1 <- randomForest(units ~ date , data = sample_train, na.action = na.exclude)
+  #not sure how to make this adaptive, would like to have the variables be units or col1 vs relationship to all other columns, come back to this later, leave as univariate for now
+  pred1 = predict(rf1, newdata = sample_test)
+  rf_ase <- mean((sample_test$units - pred1)^2)
+  predictions <- data.frame(date = sample_test$date, forecast = pred1)
+  results = c(predictions, data.frame(ASE = rf_ase))
+  #return(results)
+  return(results$forecast)
+}#note, RandomForest doesn't work so well with only 1 predictor, esp if linear progression like in example data
+
+
+
+#nn complete
+nnc <- function(target_df, n_ahead, reps, hd_vector, display){
+  #date_line <- as.Date(target_df$date, '%m/%d/%Y') #add date back in after it works
+  tlen <- length(target_df[, 1])
+  sample_train <- target_df[1:(tlen-n_ahead), ]
+  sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+  
+  ts_train<- as.ts(sample_train[, 1])
+  fit_mlp <- mlp(ts_train, reps = reps, hd = hd_vector)
+  
+  mlp_pred <- forecast(fit_mlp, h = n_ahead)
+  mlp_ase <- mean((sample_test[, 1] - mlp_pred$mean)^2)
+  
+  #r1 <- ggplot() + 
+  #  geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
+  #  geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
+  #  ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase), subtitle =paste(target_df$Product[1], 'Purchases By Cust ID: ', target_df$Customer_ID[1]))
+  
+  #if(display == TRUE){
+  #  print(fit_mlp)
+  #  plot(fit_mlp)
+  #  show(r1)}
+  
+  forecasts <- data.frame(forecast = mlp_pred$mean)
+  return(c(forecasts, mlp_ase))
+}
+
+#function that accepts function for collated rolling ase 1:12 based on trainingSize ect, so i can just swap ar_ts with rf_ts and reuse the same evaluation matrix 
+ase_gen <- function(target_df, FUNCTION){
+  #FUNCTION = ar_ts
+  j = 12 #n ahead
+  ntotal <- length(df[, 1])#+1
+  trainingSize = round(ntotal*.7)
+  #60 #will cause problems with the shorter datasets if left at flat 60
+  temp_roll_ase = c() #holder
+  temp_ase_matrix = matrix(0, ncol = 12, nrow = length(1:(ntotal-(trainingSize + j) + 1))) #preallocation
+  
+  for(k in 1:(ntotal-(trainingSize + j) + 1)){
+    # print(substitute(FUNCTION)) #use subsitute to return function name as string
+    if(substitute(FUNCTION) == 'nnc'){ #use subsitute to return function name as symbol/match
+      temp_forecasts <- FUNCTION(target_df[k:(k+(trainingSize-1)),], j, 5, c(10, 10, 10), FALSE)
+      for(i in 1:12){
+        wstart <- trainingSize + k 
+        wend <- trainingSize + k + i -1
+        #print(paste(wstart, ':', wend))
+        temp_ase_matrix[k, i] <- mean((target_df[, 1][(wstart:wend)]-temp_forecasts$forecast[1:i])^2)
+      }}
+    else{
+      temp_forecasts <- FUNCTION(j, target_df[k:(k+(trainingSize-1)), ])#feed ar_ts dataframe with shifting rows
+      for(i in 1:12){
+        wstart <- trainingSize + k 
+        wend <- trainingSize + k + i -1
+        #print(paste(wstart, ':', wend))
+        temp_ase_matrix[k, i] <- mean((target_df[, 1][(wstart:wend)]-temp_forecasts[1:i])^2)
+      }}
+  }
+  #print(k)
+  
+  closeAllConnections()
+  for(i in 1:12){
+    temp_roll_ase[i] <-mean(temp_ase_matrix[, i])}
+  return(temp_roll_ase)
+  #return(temp_ase_matrix)
+}
+#have to sink/closeallconnections the function to hide tswge table output
+```
+
+initial vis and diagnostics
+```{r}
+library(ggplot2)
+v0 <- ggplot(data = df) +
+  geom_line(aes(x = date, y = units)) +
+  ggtitle('univariate time series')
+v0
+
+pacf(df)
+```
+
+#individual plots for each alg??
+```{r}
+n_ahead <- 6 #slider input here
+train_df <- df[1:(length(df[, 1])-(n_ahead)), ]
+test_df <- df[(length(df[, 1])-n_ahead+1):length(df[, 1]), ]
+pred <- em_ts(n_ahead, train_df)
+pred_df <- data.frame('units' = pred, 'date' = test_df$date)
+v1 <- ggplot() +
+  geom_line(data = train_df, aes(x = date, y = units, col = 'a'))+
+  geom_line(data = pred_df, aes(x = date, y = units, col = 'b')) + 
+  geom_line(data = test_df, aes(x = date, y = units, col = 'c')) +
+  scale_color_discrete(name = ' ', labels = c('original', 'prediction', 'actual'))
+v1
+
+```
+a bit more adaptive, specify function, df, n_ahead -> graph
+eventual flow needs to be char -> function ->
+```{r}
+fitcheck <- function(n_ahead, df, FUNCTION_STRING){
+  train_df <- df[1:(length(df[, 1])-(n_ahead)), ]
+test_df <- df[(length(df[, 1])-n_ahead+1):length(df[, 1]), ]
+alg <- match.fun(FUNCTION_STRING)
+#exception for nnc
+if(FUNCTION_STRING == 'nnc'){
+  x <- alg(df, n_ahead, 20, c(5, 5, 5), FALSE)
+  pred <- x[[1]][1:6] #needs to be flat list for consistency
+}
+else{
+  pred <- alg(n_ahead, train_df)
+}
+
+pred_df <- data.frame('units' = pred, 'date' = test_df$date)
+vx <- ggplot() +
+  geom_line(data = train_df, aes(x = date, y = units, col = 'a'))+
+  geom_line(data = pred_df, aes(x = date, y = units, col = 'b')) + 
+  geom_line(data = test_df, aes(x = date, y = units, col = 'c')) +
+  scale_color_discrete(name = ' ', labels = c('original', 'prediction', 'actual')) +
+  ggtitle(paste0('Prediction Algorithm: ', FUNCTION_STRING), subtitle = paste0('Check fit on: ', n_ahead, ' [time intervals]'))
+return(vx)
+}
+```
+
+```{r}
+#basic execution
+#have a slider for n_ahead
+#have a menu/buttons for FUNCTION? list of functions as strings, convert to function with match.fun
+#nevermind, match.fun simply assigns the listed function to a new identifier
+#input df on earlier screen?? probably need a check for that
+#also add ASE? or another display for that? 
+
+n_ahead <- 12
+#fitcheck accepts a string matching a function name
+v1 <- fitcheck(n_ahead, df, 'nnc')
+v1
+```
+
+
+generate all forecast data and store in df and plot????
+```{r}
+any_backcast <- function(n_ahead, df, FUNCTION_STRING){
+  train_df <- df[1:(length(df[, 1])-(n_ahead)), ]
+test_df <- df[(length(df[, 1])-n_ahead+1):length(df[, 1]), ]
+alg <- match.fun(FUNCTION_STRING)
+#exception for nnc
+if(FUNCTION_STRING == 'nnc'){
+  x <- alg(df, n_ahead, 20, c(5, 5, 5), FALSE)
+  pred <- x[[1]][1:6] #needs to be flat list for consistency
+}
+else{
+  pred <- alg(n_ahead, train_df)
+}
+
+pred_df <- data.frame('units' = pred, 'date' = test_df$date)
+return(pred_df)
+}
+#use this to iteratively generate predictions keyed to specified dates
+```
+
+```{r}
+n_ahead <- 12 #slider input hooks here
+alg_list <- c('em_ts', 'ar_ts_boot', 'ari_ts_boot', 'ari_s12_ts_boot', 'arima_ts_boot', 'arima_s12_ts_boot', 'nnc', 'rf_ts')
+
+f_frame <- data.frame('n_ahead' = seq(1, n_ahead, 1)) #prep frame
+for(a in alg_list){
+  temp_pred <-  any_backcast(n_ahead, df, a)
+  names(temp_pred) <- c(paste(a), 'date') #leave date column in for diagnostics
+  f_frame <- cbind(f_frame, temp_pred)
+}
+
+f_frame <- f_frame[, !duplicated(colnames(f_frame))] #remove duplicated date columns leave off for sanity check on date matchups
+f_frame <- f_frame[, -1] #remove n_ahead placeholder
+f_frame <- subset(f_frame, select = c(2, 1, 3:8)) #move date to the first column
+f_frame #results frame
+
+f_melt <- melt(f_frame, id.vars = 'date')
+#graph f_frame
+v_all <- ggplot()+
+  #geom_line(data = df, aes(x = date, y = units)) +
+  geom_line(data = df[(length(df$units)-n_ahead):length(df$units), ], aes(x = date, y = units))+
+  geom_line(data = f_melt, aes(x = date, y = value, col = variable)) +
+  ggtitle(paste('Most Recent [', n_ahead, '] Time Units vs [', length(alg_list), '] TS Algorithms'))
+v_all
+```
+room to put ase on a seperate data table, maybe with highlighted row that has the lowest ASE
+
+```{r}
+#generate ASE per method (simple, single run per method)
+#Average Squared Error (higher is less accurate*)
+n_ahead <- 12
+actual_data <- df[(length(df$units)-n_ahead+1):length(df$units), ] #the data to compare to
+#use f_frame from before? or might have to calc again depending on page?
+
+
+ASE <- data.frame()
+for(c in seq(2, ncol(f_frame)-1)){ #requires date to be the first column to skip calc
+  temp_ase <- (actual_data$units - f_frame[, c])^2 %>% mean()
+  ASE <- rbind(ASE, temp_ase)
+}
+row.names(ASE) <- names(f_frame)[seq(2, ncol(f_frame)-1)]
+names(ASE) <- 'ASE'
+print(ASE)
+
+#add other accuracy metrics here later? 
+
+```
+
+ 
+goals - 
+- generate forecast data with slider/input from ui for months/time units ahead
+- selective display of models used, checkbox/radar buttons for showing original data vs arma, arima, rf, ect
+  - would likely require collation of all models run to n length in df, then selecting specific slices of the frame to display
+- interactive tool tips for mouseover of ts to show point values, date and units for actual/prediction(s)
+- some sort of indicator that calculations are ongoing
+panels
+1 - diagnostics
+2 - looking backwards/fitting algorithm - show ase calcs
+3 - looking forwards -> apply alg WITH/AFTER original data
+
+
+
+
+
+
