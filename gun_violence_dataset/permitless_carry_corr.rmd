@@ -1,0 +1,111 @@
+---
+title: "permitless carry  question"
+author: "Jonathan Tan"
+date: "9/1/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+dataset from kaggle -> https://www.kaggle.com/gunviolencearchive/gun-violence-database 
+actually -> http://www.gunviolencearchive.org/reports 
+lol dickey amendment 1997 so federal gun stats are illegal
+
+req - 2 dataset interaction
+- timeline of states that passed permitless carry laws (make distinction between open and concealed?)
+- stats per year of those states? multiple sets to choose from in the dataset, accidental deaths, mass shootings, children / teens/ adults/ accidental injuries / deaths
+
+hmm this dataset (kaggle) only hits the past 5 years? or is there more past data to find? 
+take a look later at CDC numbers, other datasets? long term 20+ years would be ideal to match scope of permitless carry laws 
+
+CDC firearm mortality by state - https://www.cdc.gov/nchs/pressroom/sosmap/firearm_mortality/firearm.htm 
+
+get (make?) law timeline data for vis like wiki page - https://en.wikipedia.org/wiki/Constitutional_carry 
+org 50ish columns = state, years on y with categorical gun law status
+0 = no permitless carry
+1 = permitless carry
+
+usafacts.com has a compliation of past CDC data on firearm deaths
+(dodgy name) (thirdparty bias check looks mostly factual though?)
+
+```{r cars}
+library(downloader)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+```
+#arrange dataset in timeline / table by state / by category
+```{r}
+usaf <- read.csv('D:\\SMU\\Github Projects\\doodles\\gun_violence_dataset\\firearm_deaths_usafacts.csv')
+#there we go 81 to 19, per state
+#reorg usaf to select years and states only 
+#reminder, r indexing is [y, x] 
+fd1 <- usaf[27:77, 1:40]
+#colnames(fd1) <- c("State", seq(1981, 2019)) #replace char with int
+fd1[, 1] <- gsub('\\(People\\)', '', fd1[, 1]) %>% trimws()   #gsub escape is \\ 
+fd1 <- fd1 %>% t() #transpose
+
+colnames(fd1) <- fd1[1, ]
+fd1 <- fd1[2:dim(fd1)[1], ] #bump state names to colnames, remove 1st col
+rownames(fd1) <- seq(1981, 2019) #year to num
+df1 <- data.frame(fd1)
+df1 <- as.data.frame(sapply(df1, as.numeric)) #string to num
+df1['years'] <- seq(1981, 2019)
+```
+```{r}
+colnames(df1)
+```
+```{r}
+df1[,1 ]
+```
+```{r}
+#sanity vis
+#year <- seq(1981, 2019)
+state_num <- 1
+g1 <- ggplot(df1, aes(years, df1[, state_num])) + geom_line() + ggtitle("CDC Firearm Deaths ", colnames(df1)[state_num])
+g1
+```
+
+```{r}
+#multiline graph requires melt
+dfm <- melt(df1, id.vars = 'years' ,value.name = "deaths")
+colnames(dfm) <- c('year', 'state', 'deaths')
+g2 <- ggplot(dfm, aes(x = year, y = deaths, color = state)) + geom_line()
+g2
+```
+
+
+#gun law timeline
+from - https://en.wikipedia.org/wiki/Constitutional_carry 
+
+```{r}
+cc1 <- data.frame(matrix(data = 0, nrow = 39, ncol = 52))
+colnames(cc1) <- colnames(df1)
+cc1['year'] <- df1['years']
+cc1 <- cc1[, c(52, 1:51)]
+#now just need to put in 1's on the year that each state passes unrestricted carry? 
+#maybe some degrees? some states have no permit open carry and no permit concealed carry, long guns vs hand guns? 
+```
+
+
+
+```{r}
+c(52, 1:51)
+```
+
+
+
+
+
+
+
+
+
+
+
+
