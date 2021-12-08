@@ -32,7 +32,7 @@ org 50ish columns = state, years on y with categorical gun law status
 usafacts.com has a compliation of past CDC data on firearm deaths
 (dodgy name) (thirdparty bias check looks mostly factual though?)
 
-```{r cars}
+```{r}
 library(downloader)
 library(dplyr)
 library(tidyverse)
@@ -99,13 +99,47 @@ c(52, 1:51)
 ```
 
 
+import/munge state political alignment
+pdf from https://www.ncsl.org/research/about-state-legislatures/partisan-composition.aspx 
+pdf to xlsx via https://www.pdftoexcel.com/
+xlsx to csv via openoffice
+```{r}
+s1978 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\1978-1988_state_party_affiliation.csv')
+s1990 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\1990-2000_state_party_affiliation.csv')
+s2002 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\2002-2014_state_party_affiliation.csv')
+s2015 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\2015_state_party_affiliation.csv')
+s2016 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\2016_state_party_affiliation.csv')
+s2017 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\2017_state_party_affiliation.csv')
+s2018 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\2018_state_party_affiliation.csv')
+s2019 <- read.csv('D:\\SMU\\Github Projects\\doodles\\state_comparatives\\2019_state_party_affiliation.csv')
+```
 
+trim the single year csv 
+```{r}
+trim_csv <- function(csv, row_select){
+  x <- csv[c(-1), c(1,row_select)] #grab only state name and party control, usually last row
+  x <- x[1:55, ]
+  colnames(x) <- c('state', substitute(csv))
+  return(x)
+}
+```
 
+compile state party timelines
+```{r}
+spt <- data.frame(s1978)
+spt <- cbind(spt, s1990[, -1]) #column bind next years data, minus the states column in column 1
+spt <- cbind(spt, s2002[, -1])
+spt <- cbind(spt, trim_csv(s2015, 14)[, -1])
+spt <- cbind(spt, trim_csv(s2016, 15)[, -1])
+spt <- cbind(spt, trim_csv(s2017, 13)[, -1])
+spt <- cbind(spt, trim_csv(s2018, 14)[, -1])
+spt <- cbind(spt, trim_csv(s2019, 13)[, -1])
+```
 
+clean/standardize
+```{r}
 
-
-
-
+```
 
 
 
